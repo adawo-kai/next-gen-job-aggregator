@@ -1,0 +1,588 @@
+{
+ "seed": 42,
+ "id_format": "<source>:<external_id>",
+ "duplicate_groups": [
+  [
+   "hh:110276571",
+   "habr:1000157197",
+   "telegram:forproducts/6717"
+  ],
+  [
+   "habr:1000156110",
+   "telegram:getitrussia/5834",
+   "hh:110302617"
+  ],
+  [
+   "hh:110289971",
+   "telegram:getitrussia/5840",
+   "habr:1000157308"
+  ],
+  [
+   "habr:1000151889",
+   "hh:110302960",
+   "telegram:getitrussia/5843"
+  ],
+  [
+   "hh:110278548",
+   "habr:1000157485",
+   "telegram:getitrussia/5847"
+  ],
+  [
+   "hh:110266406",
+   "habr:1000157640"
+  ],
+  [
+   "hh:110283632",
+   "habr:1000157695"
+  ],
+  [
+   "hh:110258123",
+   "telegram:getitrussia/5849"
+  ],
+  [
+   "hh:110287641",
+   "habr:1000157704"
+  ],
+  [
+   "habr:1000151807",
+   "telegram:forproducts/6721"
+  ],
+  [
+   "habr:1000152316",
+   "hh:110303204"
+  ],
+  [
+   "habr:1000154993",
+   "telegram:job_python/4044"
+  ],
+  [
+   "hh:110260205",
+   "habr:1000157774"
+  ],
+  [
+   "hh:110290095",
+   "habr:1000157960"
+  ],
+  [
+   "hh:110294037",
+   "telegram:forproducts/6727"
+  ],
+  [
+   "hh:110259355",
+   "telegram:forproducts/6728"
+  ],
+  [
+   "habr:1000153025",
+   "telegram:job_python/4050"
+  ],
+  [
+   "hh:110273154",
+   "habr:1000158084"
+  ],
+  [
+   "hh:110301841",
+   "habr:1000158354"
+  ],
+  [
+   "hh:110299572",
+   "habr:1000158569"
+  ],
+  [
+   "hh:110295523",
+   "habr:1000158818"
+  ],
+  [
+   "hh:110301082",
+   "telegram:it_vakansii_jobs/4926"
+  ],
+  [
+   "hh:110286724",
+   "telegram:it_vakansii_jobs/4930"
+  ],
+  [
+   "hh:110297578",
+   "telegram:datasciencejobs/8536"
+  ],
+  [
+   "hh:110278302",
+   "habr:1000159044"
+  ],
+  [
+   "habr:1000156503",
+   "hh:110303949"
+  ],
+  [
+   "habr:1000150955",
+   "hh:110304140"
+  ],
+  [
+   "hh:110301422",
+   "telegram:datasciencejobs/8538"
+  ],
+  [
+   "hh:110283398",
+   "habr:1000159215"
+  ],
+  [
+   "habr:1000154896",
+   "telegram:it_vakansii_jobs/4935"
+  ],
+  [
+   "hh:110262242",
+   "habr:1000159348"
+  ],
+  [
+   "hh:110301970",
+   "habr:1000159590"
+  ],
+  [
+   "hh:110287300",
+   "habr:1000159719"
+  ],
+  [
+   "habr:1000155418",
+   "telegram:getitrussia/5851"
+  ],
+  [
+   "habr:1000155767",
+   "telegram:job_python/4056"
+  ],
+  [
+   "habr:1000152358",
+   "hh:110305026"
+  ],
+  [
+   "hh:110263605",
+   "habr:1000159951"
+  ],
+  [
+   "hh:110298779",
+   "habr:1000160149"
+  ],
+  [
+   "habr:1000153263",
+   "hh:110305260"
+  ],
+  [
+   "hh:110283259",
+   "habr:1000160161"
+  ],
+  [
+   "habr:1000151235",
+   "hh:110305388"
+  ],
+  [
+   "habr:1000154370",
+   "hh:110305942"
+  ],
+  [
+   "hh:110281299",
+   "habr:1000160263"
+  ],
+  [
+   "hh:110251262",
+   "habr:1000160487"
+  ],
+  [
+   "hh:110280785",
+   "habr:1000160580"
+  ],
+  [
+   "habr:1000156032",
+   "telegram:forproducts/6730"
+  ],
+  [
+   "habr:1000155550",
+   "telegram:forproducts/6731"
+  ],
+  [
+   "hh:110254509",
+   "telegram:datasciencejobs/8540"
+  ],
+  [
+   "habr:1000150260",
+   "telegram:datasciencejobs/8542"
+  ],
+  [
+   "habr:1000153492",
+   "telegram:it_vakansii_jobs/4940"
+  ],
+  [
+   "hh:110254963",
+   "habr:1000160812"
+  ],
+  [
+   "hh:110268836",
+   "telegram:datasciencejobs/8543"
+  ],
+  [
+   "habr:1000156429",
+   "telegram:job_python/4062"
+  ],
+  [
+   "hh:110292699",
+   "habr:1000160852"
+  ],
+  [
+   "hh:110271372",
+   "habr:1000160921"
+  ]
+ ],
+ "eternal_groups": [
+  {
+   "company": "Рога и Копыта Софт",
+   "title": "Senior ML-инженер",
+   "span_days": 97.7,
+   "ids": [
+    "hh:110306262",
+    "hh:110306912",
+    "hh:110307283",
+    "hh:110307793",
+    "hh:110308017",
+    "hh:110308559",
+    "hh:110308972",
+    "hh:110309427",
+    "hh:110310217",
+    "hh:110310748"
+   ]
+  },
+  {
+   "company": "ФинТехЛаб",
+   "title": "Junior Kotlin Backend Developer",
+   "span_days": 118.6,
+   "ids": [
+    "telegram:job_python/4063",
+    "telegram:it_vakansii_jobs/4944",
+    "telegram:datasciencejobs/8544",
+    "telegram:forproducts/6737",
+    "telegram:forproducts/6742",
+    "telegram:it_vakansii_jobs/4946",
+    "telegram:job_python/4069",
+    "telegram:job_python/4075",
+    "telegram:job_python/4080",
+    "telegram:job_python/4086",
+    "telegram:jobforjunior/7634"
+   ]
+  },
+  {
+   "company": "Cloudberry Labs",
+   "title": "Frontend-разработчик (React) / Frontend Developer (React)",
+   "span_days": 108.2,
+   "ids": [
+    "hh:110311591",
+    "hh:110312059",
+    "hh:110312576",
+    "hh:110313322",
+    "hh:110314103",
+    "hh:110314754",
+    "hh:110314930",
+    "hh:110315545",
+    "hh:110316308",
+    "hh:110316468"
+   ]
+  },
+  {
+   "company": "Яндекс",
+   "title": "Python-разработчик / Python Developer",
+   "span_days": 116.2,
+   "ids": [
+    "telegram:job_python/4092",
+    "telegram:job_python/4095",
+    "telegram:it_vakansii_jobs/4949",
+    "telegram:forproducts/6746",
+    "telegram:forproducts/6749",
+    "telegram:getitrussia/5853",
+    "telegram:datasciencejobs/8549",
+    "telegram:getitrussia/5855",
+    "telegram:datasciencejobs/8553",
+    "telegram:getitrussia/5859",
+    "telegram:jobforjunior/7638",
+    "telegram:it_vakansii_jobs/4953"
+   ]
+  },
+  {
+   "company": "Т-Банк",
+   "title": "Senior Python разработчик",
+   "span_days": 118.6,
+   "ids": [
+    "habr:1000160971",
+    "habr:1000161171",
+    "habr:1000161403",
+    "habr:1000161469",
+    "habr:1000161536",
+    "habr:1000161801",
+    "habr:1000162099",
+    "habr:1000162349",
+    "habr:1000162402",
+    "habr:1000162499",
+    "habr:1000162726",
+    "habr:1000162795"
+   ]
+  },
+  {
+   "company": "Тинькофф",
+   "title": "Ведущий python-разработчик",
+   "span_days": 119.4,
+   "ids": [
+    "hh:110317055",
+    "hh:110317758",
+    "hh:110318095",
+    "hh:110318656",
+    "hh:110318986",
+    "hh:110319471",
+    "hh:110320003",
+    "hh:110320568",
+    "hh:110320958",
+    "hh:110321510",
+    "hh:110321641",
+    "hh:110321716"
+   ]
+  },
+  {
+   "company": "Ozon",
+   "title": "Golang-разработчик (Middle)",
+   "span_days": 108.1,
+   "ids": [
+    "hh:110322069",
+    "hh:110322543",
+    "hh:110323191",
+    "hh:110323497",
+    "hh:110323639",
+    "hh:110324085",
+    "hh:110324770",
+    "hh:110325141",
+    "hh:110325320",
+    "hh:110325581",
+    "hh:110325711"
+   ]
+  },
+  {
+   "company": "Авито",
+   "title": "Менеджер продукта",
+   "span_days": 94.3,
+   "ids": [
+    "hh:110325795",
+    "hh:110326479",
+    "hh:110327233",
+    "hh:110327957",
+    "hh:110328710",
+    "hh:110329189",
+    "hh:110330036",
+    "hh:110330359",
+    "hh:110330827"
+   ]
+  },
+  {
+   "company": "Kaspersky",
+   "title": "Инженер по тестированию / QA Engineer",
+   "span_days": 110.9,
+   "ids": [
+    "hh:110331051",
+    "hh:110331844",
+    "hh:110332309",
+    "hh:110333106",
+    "hh:110333892",
+    "hh:110334765",
+    "hh:110335335",
+    "hh:110335408",
+    "hh:110335610",
+    "hh:110336422"
+   ]
+  },
+  {
+   "company": "VK",
+   "title": "Младший java-разработчик",
+   "span_days": 108.5,
+   "ids": [
+    "hh:110336561",
+    "hh:110337330",
+    "hh:110337723",
+    "hh:110338194",
+    "hh:110338310",
+    "hh:110338497",
+    "hh:110339026",
+    "hh:110339843",
+    "hh:110340104",
+    "hh:110340517",
+    "hh:110340985",
+    "hh:110341564"
+   ]
+  },
+  {
+   "company": "Сбер",
+   "title": "Middle Python разработчик",
+   "span_days": 99.7,
+   "ids": [
+    "habr:1000163056",
+    "habr:1000163260",
+    "habr:1000163320",
+    "habr:1000163389",
+    "habr:1000163650",
+    "habr:1000163776",
+    "habr:1000163956",
+    "habr:1000163965",
+    "habr:1000164118",
+    "habr:1000164165",
+    "habr:1000164296"
+   ]
+  },
+  {
+   "company": "Wildberries",
+   "title": "Инженер по тестированию (Junior)",
+   "span_days": 99.2,
+   "ids": [
+    "habr:1000164414",
+    "habr:1000164664",
+    "habr:1000164887",
+    "habr:1000165047",
+    "habr:1000165238",
+    "habr:1000165422",
+    "habr:1000165553",
+    "habr:1000165582",
+    "habr:1000165587",
+    "habr:1000165756",
+    "habr:1000166002"
+   ]
+  },
+  {
+   "company": "Selectel",
+   "title": "ML-инженер / ML Engineer",
+   "span_days": 117.8,
+   "ids": [
+    "hh:110342227",
+    "hh:110342999",
+    "hh:110343808",
+    "hh:110344576",
+    "hh:110344736",
+    "hh:110345329",
+    "hh:110346136",
+    "hh:110346739",
+    "hh:110347143",
+    "hh:110347907",
+    "hh:110348383",
+    "hh:110348842"
+   ]
+  },
+  {
+   "company": "Positive Technologies",
+   "title": "Менеджер продукта / Product Manager",
+   "span_days": 103.7,
+   "ids": [
+    "habr:1000166139",
+    "habr:1000166256",
+    "habr:1000166398",
+    "habr:1000166490",
+    "habr:1000166768",
+    "habr:1000166793",
+    "habr:1000166940",
+    "habr:1000167083",
+    "habr:1000167114",
+    "habr:1000167246"
+   ]
+  },
+  {
+   "company": "2ГИС",
+   "title": "Junior Go Developer",
+   "span_days": 99.7,
+   "ids": [
+    "hh:110349699",
+    "hh:110350133",
+    "hh:110350400",
+    "hh:110350874",
+    "hh:110351394",
+    "hh:110351609",
+    "hh:110352474",
+    "hh:110352697",
+    "hh:110353473",
+    "hh:110353791"
+   ]
+  }
+ ],
+ "red_flag_ids": [
+  "telegram:job_python/4075",
+  "telegram:it_vakansii_jobs/4946",
+  "hh:110301841",
+  "habr:1000158354",
+  "hh:110314930",
+  "telegram:job_python/4086",
+  "telegram:it_vakansii_jobs/4944",
+  "hh:110307283",
+  "habr:1000151235",
+  "hh:110305388",
+  "hh:110255126",
+  "hh:110308017",
+  "habr:1000153025",
+  "habr:1000154507",
+  "hh:110316308",
+  "hh:110300347",
+  "hh:110314103",
+  "hh:110272150",
+  "hh:110310217",
+  "hh:110253102",
+  "hh:110261055",
+  "habr:1000158084",
+  "hh:110281299",
+  "habr:1000157695",
+  "hh:110315545",
+  "hh:110308559",
+  "hh:110268008",
+  "hh:110283632",
+  "hh:110264078",
+  "hh:110273154",
+  "hh:110295249",
+  "hh:110306262",
+  "telegram:job_python/4032",
+  "telegram:jobforjunior/7634",
+  "telegram:forproducts/6737",
+  "telegram:forproducts/6742",
+  "telegram:forproducts/6731",
+  "hh:110311591",
+  "hh:110257698",
+  "telegram:job_python/4006",
+  "telegram:job_python/4080",
+  "hh:110308972",
+  "telegram:job_python/4024",
+  "hh:110275455",
+  "hh:110306912",
+  "telegram:job_python/4069",
+  "telegram:datasciencejobs/8544",
+  "hh:110310748",
+  "telegram:datasciencejobs/8519",
+  "telegram:datasciencejobs/8522",
+  "hh:110309427",
+  "habr:1000160263",
+  "telegram:job_python/4050",
+  "telegram:job_python/4063",
+  "habr:1000156858",
+  "hh:110292922",
+  "hh:110291558",
+  "hh:110313322",
+  "hh:110316468",
+  "telegram:getitrussia/5815",
+  "habr:1000152464",
+  "habr:1000155550",
+  "hh:110287155",
+  "hh:110307793",
+  "hh:110312059",
+  "habr:1000150326",
+  "hh:110312576",
+  "hh:110298923",
+  "habr:1000153592",
+  "hh:110314754"
+ ],
+ "stats": {
+  "total": 448,
+  "by_source": {
+   "hh": 226,
+   "habr": 119,
+   "telegram": 103
+  },
+  "duplicate_groups": 55,
+  "duplicate_postings": 60,
+  "eternal_groups": 15,
+  "eternal_postings": 163,
+  "red_flag": 70,
+  "junior_or_intern": 135,
+  "1c": 22
+ }
+}

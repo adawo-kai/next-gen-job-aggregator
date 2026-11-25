@@ -1,0 +1,17 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+node_modules/
+.next/
+frontend/out/
+*.log
+.playwright-mcp/
+.claude/
+*.tsbuildinfo
+tehnical task
+frontend/.env*

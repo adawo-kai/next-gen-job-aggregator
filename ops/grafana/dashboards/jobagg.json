@@ -1,0 +1,36 @@
+{
+  "uid": "jobagg",
+  "title": "Job Aggregator — Collection & API",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "type": "stat", "title": "Собрано за час (по источникам)", "gridPos": { "x": 0, "y": 0, "w": 8, "h": 6 },
+      "datasource": { "uid": "prom" },
+      "targets": [{ "expr": "jobs_collected_last_hour", "legendFormat": "{{source}}" }]
+    },
+    {
+      "type": "stat", "title": "Новых вакансий за час", "gridPos": { "x": 8, "y": 0, "w": 8, "h": 6 },
+      "datasource": { "uid": "prom" },
+      "targets": [{ "expr": "jobs_new_last_hour", "legendFormat": "{{source}}" }]
+    },
+    {
+      "type": "stat", "title": "Ошибки парсинга за час", "gridPos": { "x": 16, "y": 0, "w": 8, "h": 6 },
+      "datasource": { "uid": "prom" },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } } },
+      "targets": [{ "expr": "jobs_collect_errors_last_hour", "legendFormat": "{{source}}" }]
+    },
+    {
+      "type": "timeseries", "title": "API RPS по маршрутам", "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "uid": "prom" },
+      "targets": [{ "expr": "sum by (route) (rate(jobs_http_request_duration_seconds_count[5m]))", "legendFormat": "{{route}}" }]
+    },
+    {
+      "type": "timeseries", "title": "API latency p95", "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "uid": "prom" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, route) (rate(jobs_http_request_duration_seconds_bucket[5m])))", "legendFormat": "{{route}}" }]
+    }
+  ]
+}

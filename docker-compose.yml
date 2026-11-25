@@ -1,0 +1,117 @@
+name: jobagg
+
+x-backend: &backend
+  build: ./backend
+  image: jobagg-backend:latest
+  env_file:
+    - path: .env
+      required: false
+  environment: &backend-env
+    DATABASE_URL: postgresql+asyncpg://jobs:jobs@postgres:5432/jobs
+    REDIS_URL: redis://redis:6379/0
+    CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    LOG_LEVEL: INFO
+  restart: unless-stopped
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: jobs
+      POSTGRES_PASSWORD: jobs
+      POSTGRES_DB: jobs
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobs -d jobs"]
+      interval: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 20
+
+  # one-shot: schema + FTS trigger + FX + demo seed + first enrichment pass
+  bootstrap:
+    <<: *backend
+    command: python -m app.bootstrap
+    restart: "no"
+
+  api:
+    <<: *backend
+    ports: ["8000:8000"]
+    depends_on:
+      bootstrap: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      retries: 5
+
+  # isolated collector workers: a ban/crash on one source never blocks the others
+  worker-collect:
+    <<: *backend
+    command: celery -A app.worker worker -Q collect.habr,collect.telegram,collect.hh,collect.demo -c 3 -n collect@%h --loglevel=INFO
+    depends_on:
+      bootstrap: { condition: service_completed_successfully }
+
+  worker-pipeline:
+    <<: *backend
+    command: celery -A app.worker worker -Q pipeline,notify -c 2 -n pipeline@%h --loglevel=INFO
+    depends_on:
+      bootstrap: { condition: service_completed_successfully }
+
+  beat:
+    <<: *backend
+    command: celery -A app.worker beat --loglevel=INFO --schedule /tmp/celerybeat-schedule
+    depends_on:
+      bootstrap: { condition: service_completed_successfully }
+
+  bot:
+    <<: *backend
+    command: python -m app.bot
+    depends_on:
+      bootstrap: { condition: service_completed_successfully }
+
+  flower:
+    <<: *backend
+    command: celery -A app.worker flower --port=5555
+    ports: ["5555:5555"]
+    depends_on:
+      redis: { condition: service_healthy }
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes: [./ops/prometheus.yml:/etc/prometheus/prometheus.yml:ro]
+    ports: ["9090:9090"]
+    depends_on: [api]
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3001:3000"]
+    depends_on: [prometheus]
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports: ["3000:3000"]
+    depends_on: [api]
+    restart: unless-stopped
+
+volumes:
+  pgdata:

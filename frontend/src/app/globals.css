@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #fbfbfc;
+  --foreground: #0b0b0f;
+  --muted: #f2f2f5;
+  --muted-foreground: #6b6b76;
+  --card: #ffffff;
+  --card-foreground: #0b0b0f;
+  --border: rgba(10, 10, 20, 0.08);
+  --border-strong: rgba(10, 10, 20, 0.14);
+  --input: rgba(10, 10, 20, 0.1);
+  --ring: rgba(109, 92, 255, 0.45);
+  --primary: #6d5cff;
+  --primary-foreground: #ffffff;
+  --accent: #22d3ee;
+  --elevated: #ffffff;
+  --grid: rgba(10, 10, 20, 0.045);
+  --glow: rgba(109, 92, 255, 0.14);
+}
+
+.dark {
+  --background: #07070a;
+  --foreground: #ededf0;
+  --muted: #121218;
+  --muted-foreground: #8b8b98;
+  --card: #0d0d12;
+  --card-foreground: #ededf0;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+  --input: rgba(255, 255, 255, 0.09);
+  --ring: rgba(139, 124, 255, 0.55);
+  --primary: #8b7cff;
+  --primary-foreground: #0b0b0f;
+  --accent: #22d3ee;
+  --elevated: #121219;
+  --grid: rgba(255, 255, 255, 0.035);
+  --glow: rgba(124, 108, 255, 0.22);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-elevated: var(--elevated);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-feature-settings: "cv11", "ss01", "ss03";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--primary) 35%, transparent);
+}
+
+/* Subtle grid + glow backdrop */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+
+.glow-top {
+  background: radial-gradient(60% 50% at 50% 0%, var(--glow), transparent 70%);
+}
+
+.text-gradient {
+  background: linear-gradient(180deg, var(--foreground) 30%, color-mix(in oklab, var(--foreground) 45%, transparent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-brand {
+  background: linear-gradient(92deg, #a594ff 0%, #6d5cff 40%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--muted) 25%, color-mix(in oklab, var(--muted) 60%, var(--border-strong)) 50%, var(--muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@layer components {
+/* Card hover sheen */
+.card-sheen {
+  position: relative;
+  isolation: isolate;
+}
+.card-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--foreground) 10%, transparent), transparent 60%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: -1;
+}
+
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.prose-desc p {
+  margin: 0.25rem 0;
+  line-height: 1.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
