@@ -1,0 +1,40 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env: { POSTGRES_USER: jobs, POSTGRES_PASSWORD: jobs, POSTGRES_DB: jobs }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U jobs" --health-interval 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt ruff
+      - run: ruff check app --select E9,F63,F7,F82
+      - run: pytest -q
+      - name: Bootstrap + dedup quality gate
+        env:
+          DATABASE_URL: postgresql+asyncpg://jobs:jobs@localhost:5432/jobs
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          python -m app.bootstrap
+          python -m scripts.eval_dedup
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - run: npm run build
