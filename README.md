@@ -1,4 +1,5 @@
 # Next-Gen Job Aggregator
+n[![CI](https://github.com/adawo-kai/next-gen-job-aggregator/actions/workflows/ci.yml/badge.svg)](https://github.com/adawo-kai/next-gen-job-aggregator/actions/workflows/ci.yml)
 
 Умный агрегатор IT-вакансий. Он собирает вакансии из hh.ru, Habr Карьеры и Telegram-каналов, **склеивает одну и ту же вакансию с разных площадок в одну карточку**, извлекает стек, грейд, саммари и красные флаги, оценивает «воду», считает **объяснимый Match Score** с профилем кандидата и помечает **«вечные» вакансии**. Есть канбан-трекер откликов и Telegram-бот с уведомлениями.
 
