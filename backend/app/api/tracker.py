@@ -112,6 +112,11 @@ async def patch(item_id: int, body: PatchIn, user: User = Depends(current_user),
                          text="Написать HR, если нет ответа")
             session.add(r)
             session.add(TrackerEvent(item_id=i.id, kind="reminder", payload={"text": r.text, "auto": True}))
+        if body.status in ("offer", "rejected"):
+            # the process is over: pending follow-ups make no sense anymore
+            for r in i.reminders:
+                if not r.sent:
+                    r.sent = True
         i.status = body.status
     if body.note is not None and body.note != i.note:
         i.note = body.note

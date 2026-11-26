@@ -32,7 +32,8 @@ export function VacancyCard({ v, index = 0, compact = false }: { v: TVacancy; in
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: Math.min(index, 8) * 0.035, ease: [0.22, 1, 0.36, 1] }}
     >
-      <Link href={`/vacancies/${v.id}`} className="group block">
+      {/* no viewport prefetch: an infinite list would fire dozens of RSC requests at once */}
+      <Link href={`/vacancies/${v.id}`} prefetch={false} className="group block">
         <Card
           className={cn(
             "relative overflow-hidden p-4 transition-all duration-200 hover:-translate-y-px hover:border-border-strong hover:shadow-[0_12px_40px_-16px_var(--glow)] sm:p-5",

@@ -283,10 +283,16 @@ function SalaryMarket({ v }: { v: VacancyDetail }) {
           <div className="absolute top-4 h-2 rounded-full bg-gradient-to-r from-violet-500/50 to-cyan-400/50" style={{ left: pos(m.p25), width: `calc(${pos(m.p75)} - ${pos(m.p25)})` }} />
           <div className="absolute top-2 h-6 w-0.5 rounded bg-foreground/70" style={{ left: pos(m.p50) }} />
           {[
-            { k: "p25", v: m.p25 },
             { k: "медиана", v: m.p50 },
+            { k: "p25", v: m.p25 },
             { k: "p75", v: m.p75 },
-          ].map((p) => (
+          ]
+            // narrow markets put percentiles next to each other: keep the median, drop labels that would collide
+            .reduce<{ k: string; v: number }[]>((shown, p) => {
+              const f = (p.v - min) / (max - min);
+              return shown.some((s) => Math.abs((s.v - min) / (max - min) - f) < 0.12) ? shown : [...shown, p];
+            }, [])
+            .map((p) => (
             <div key={p.k} className="absolute -top-5 -translate-x-1/2 text-center text-[11px] text-muted-foreground" style={{ left: pos(p.v) }}>
               <span className="tabular-nums">{formatMoney(p.v, "RUB", true)}</span>
             </div>
