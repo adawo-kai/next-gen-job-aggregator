@@ -106,14 +106,27 @@ async def get_match(vid: int, session: AsyncSession = Depends(get_session), user
 async def similar(vid: int, session: AsyncSession = Depends(get_session), user: User | None = Depends(optional_user)):
     v = await _get(session, vid)
     rates = await get_rates(session, get_redis())
+    # candidates: same role words (trigram) OR shared core stack; then rank by role + stack + grade
     sim = func.similarity(Vacancy.norm_title, v.norm_title)
-    q = select(Vacancy).where(Vacancy.id != v.id, Vacancy.is_ghost.is_(False))
-    if v.tags:
-        q = q.where(Vacancy.tags.overlap(v.tags[:5]))
-    if v.grade:
-        q = q.order_by((Vacancy.grade == v.grade).desc())
-    rows = (await session.execute(q.order_by(sim.desc(), Vacancy.published_at.desc()).limit(6))).scalars().all()
-    return [card(x, rates, "RUB", match_score(user, x, rates)) for x in rows]
+    core = (v.must_have or v.tags or [])[:6]
+    cond = sim > 0.3
+    if core:
+        cond = cond | Vacancy.tags.overlap(core)
+    rows = (await session.execute(
+        select(Vacancy, sim.label("sim")).where(Vacancy.id != v.id, Vacancy.is_ghost.is_(False), cond)
+        .order_by(sim.desc()).limit(300)
+    )).all()
+    mine = {t.lower() for t in core}
+
+    def score(x: Vacancy, title_sim: float) -> float:
+        theirs = {t.lower() for t in (x.tags or [])[:10]}
+        stack = len(mine & theirs) / len(mine | theirs) if mine and theirs else 0.0
+        grade = 1.0 if v.grade and x.grade == v.grade else 0.0
+        return 0.5 * float(title_sim) + 0.4 * stack + 0.1 * grade
+
+    ranked = sorted(rows, key=lambda r: score(r[0], r[1]), reverse=True)
+    best = [x for x, s in ranked if score(x, s) >= 0.2][:6]
+    return [card(x, rates, "RUB", match_score(user, x, rates)) for x in best]
 
 
 @router.post("/vacancies/{vid}/hide", status_code=204)

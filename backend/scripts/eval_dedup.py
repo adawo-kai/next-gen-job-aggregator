@@ -63,4 +63,14 @@ async def main() -> dict:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import argparse
+    import sys
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--min-f1", type=float, default=0.0, help="fail (exit 1) below this dedup F1")
+    args = ap.parse_args()
+    r = asyncio.run(main())
+    g = r["ghost_detector"]
+    if r["dedup"]["f1"] < args.min_f1 or g["detected"] < g["eternal_groups"]:
+        print(f"QUALITY GATE FAILED: f1={r['dedup']['f1']} < {args.min_f1} or ghosts {g['detected']}/{g['eternal_groups']}")
+        sys.exit(1)

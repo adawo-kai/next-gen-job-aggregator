@@ -10,7 +10,7 @@ logs:
 	docker compose logs -f api worker-collect worker-pipeline bot
 
 test:          ## unit tests inside the backend image
-	docker compose run --rm --no-deps api pytest -q
+	docker compose exec api python -m pytest -q --cov=app
 
 eval:          ## dedup precision/recall + ghost detector on labelled demo data
 	docker compose exec api python -m scripts.eval_dedup

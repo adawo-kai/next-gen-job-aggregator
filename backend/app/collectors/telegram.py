@@ -429,17 +429,60 @@ def parse_channel_page(page_html: str) -> list[TgPost]:
     return posts
 
 
+# channel section headers / rubric names that heuristics mistake for an employer
+_GENERIC_COMPANY = {
+    "маркетинг", "поддержка", "менеджмент", "продажи", "разработка", "дизайн", "аналитика", "hr", "финансы",
+    "что предстоит", "задачи", "требования", "условия", "о компании", "о нас", "о проекте", "вакансия",
+    "вакансии", "nda", "компания", "удаленно", "удалённо", "офис", "гибрид", "remote", "it", "ит",
+}
+_GRADE_ONLY = re.compile(r"^(?:junior|middle|senior|lead|intern|джуниор|миддл|сеньор|стажер|стажёр)[\s+/]*"
+                         r"(?:(?:junior|middle|senior|lead)[\s+]*)?$", re.I)
+_CONTENT_POST = re.compile(r"^(?:что |как |почему |зачем |топ |должен знать|\d+ (?:способ|причин|ошиб|совет))|"
+                           r"\bзапустил\w*\b|\bстатья\b|\bгайд\b|\bчек-?лист\b", re.I)
+
+
+def clean_title(title: str) -> str:
+    title = re.sub(r"\s*\([^)]*$", "", title)  # unbalanced "(строго" tail
+    title = re.sub(r"\s+в\s+(?:стабильн\w+|крупн\w+|быстрорастущ\w+)?\s*\w*\s*компани\w*.*$", "", title, flags=re.I)
+    return title.strip(" -–—,.;:")
+
+
+def plausible_title(title: str) -> bool:
+    if not title or len(title) < 4 or title[0].islower():
+        return False  # titles taken from a bullet line ("самостоятельно вести DS-решения")
+    if _GRADE_ONLY.match(title) or _CONTENT_POST.search(title) or title.endswith("?"):
+        return False
+    return bool(_ROLE_KW.search(title))
+
+
+def plausible_company(name: str | None) -> str | None:
+    if not name:
+        return None
+    name = name.strip(" .«»\"'")
+    low = name.lower()
+    if low in _GENERIC_COMPANY or len(name) > 45 or len(name.split()) > 4:
+        return None
+    if name[:1].islower() or name.endswith(("!", "?", ":")) or _ROLE_KW.search(name) and len(name.split()) > 2:
+        return None
+    return name
+
+
 def post_to_vacancy(post: TgPost) -> RawVacancy | None:
     """Turn a channel post into a RawVacancy, or None if it's not a vacancy (pure)."""
     text = post.text
     if not is_vacancy(text):
         return None
     title_full = extract_title(text)
-    if not _ROLE_KW.search(title_full) or title_full.endswith("?"):
+    if not plausible_title(title_full):
         return None  # articles, podcasts, ads that merely mention jobs
     title, comp_from_title = split_title_company(title_full)
+    title = clean_title(title) or title
+    if not plausible_title(title):
+        return None
     # @handles are usually recruiters -> ignored
-    company = extract_company(text) or comp_from_title or company_before_title(text, title_full)
+    company = plausible_company(
+        extract_company(text) or comp_from_title or company_before_title(text, title_full)
+    )
     sal = parse_salary(text)
     ext = f"{post.channel}/{post.post_id}"
     return RawVacancy(

@@ -7,23 +7,37 @@ from __future__ import annotations
 
 import asyncio
 
-from sqlalchemy import func, select, text
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import create_engine, func, inspect, select
 
 from app.config import get_settings
-from app.db import SEARCH_TRIGGER_SQL, engine, worker_sessionmaker
-from app.models import Base, Vacancy
+from app.db import worker_sessionmaker
+from app.models import Vacancy
 from app.observability import log, setup_logging
+
+ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
+
+
+def migrate() -> None:
+    """alembic upgrade head; a DB created before migrations existed is stamped instead of re-created."""
+    cfg = Config(str(ALEMBIC_INI))
+    cfg.set_main_option("script_location", str(ALEMBIC_INI.parent / "migrations"))
+    eng = create_engine(get_settings().sync_database_url)
+    tables = set(inspect(eng).get_table_names())
+    eng.dispose()
+    if "vacancies" in tables and "alembic_version" not in tables:
+        command.stamp(cfg, "0001")
+        log.info("schema_stamped_legacy")
+    command.upgrade(cfg, "head")
 
 
 async def main() -> None:
     setup_logging("bootstrap")
     s = get_settings()
-    async with engine.begin() as conn:
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        await conn.run_sync(Base.metadata.create_all)
-        for stmt in SEARCH_TRIGGER_SQL:
-            await conn.execute(text(stmt))
+    await asyncio.to_thread(migrate)
     log.info("schema_ready")
 
     from redis.asyncio import Redis

@@ -15,3 +15,4 @@ frontend/out/
 *.tsbuildinfo
 tehnical task
 frontend/.env*
+.coverage

@@ -16,6 +16,7 @@ from app.observability import VACANCIES_MERGED, VACANCIES_NEW, log
 from app.pipeline.currency import get_rates, to_rub
 from app.pipeline.dedup import find_duplicate
 from app.pipeline.normalize import normalize, repost_key
+from app.pipeline.quality import is_it
 
 
 @dataclass
@@ -24,6 +25,7 @@ class IngestStats:
     new: int = 0
     merged: int = 0
     seen: int = 0
+    skipped_non_it: int = 0
     new_ids: list[int] | None = None
 
 
@@ -71,6 +73,9 @@ async def _ingest_one(session: AsyncSession, raw: RawDTO, rates: dict, stats: In
         return
 
     n = normalize(raw)
+    if not is_it(n):
+        stats.skipped_non_it += 1
+        return
     company_id = await upsert_company(session, n.company, n.norm_company, raw.company_logo)
     decision = await find_duplicate(session, n, company_id)
 
