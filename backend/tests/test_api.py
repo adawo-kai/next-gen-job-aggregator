@@ -221,7 +221,7 @@ async def test_telegram_bot_linking_and_buttons(client, auth):
     assert (await client.get("/api/v1/auth/me", headers=h(auth))).json()["telegram_linked"] is True
     m = msg()
     await bot.status(m)
-    assert "Привязан" in m.answer.call_args.args[0]
+    assert "Уведомления включены" in m.answer.call_args.args[0]
 
     items = (await client.get("/api/v1/vacancies", params={"limit": 3})).json()["items"]
     fav_id, hide_id = items[1]["id"], items[2]["id"]
@@ -262,3 +262,42 @@ def test_circuit_breaker_opens_after_threshold():
     assert cb.is_open()
     cb.success()
     assert not cb.is_open()
+
+
+def _signed_init_data(bot_token: str, user: dict, auth_date: int | None = None) -> str:
+    import hashlib
+    import hmac
+    import json
+    import time
+    from urllib.parse import urlencode
+
+    fields = {"auth_date": str(auth_date or int(time.time())), "query_id": "AAH1", "user": json.dumps(user)}
+    check = "\n".join(f"{k}={v}" for k, v in sorted(fields.items()))
+    secret = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+    fields["hash"] = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+    return urlencode(fields)
+
+
+async def test_mini_app_sign_in(client, monkeypatch):
+    """Telegram Mini App: valid initData signs in (creating the account once), tampered/expired data is rejected."""
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "telegram_bot_token", "123456:TEST-token")
+    tg_user = {"id": 5550000 + uuid.uuid4().int % 10000, "first_name": "Илим", "username": "ilim_test"}
+    init = _signed_init_data("123456:TEST-token", tg_user)
+
+    r = await client.post("/api/v1/auth/telegram/webapp", json={"init_data": init})
+    assert r.status_code == 200, r.text
+    me = (await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {r.json()['access_token']}"})).json()
+    assert me["telegram_linked"] and me["display_name"] == "Илим" and me["email"] is None
+
+    again = await client.post("/api/v1/auth/telegram/webapp", json={"init_data": init})
+    me2 = (await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {again.json()['access_token']}"})).json()
+    assert me2["id"] == me["id"]  # same account on every launch
+
+    tampered = init.replace("ilim_test", "hacker")
+    assert (await client.post("/api/v1/auth/telegram/webapp", json={"init_data": tampered})).status_code == 401
+    old = _signed_init_data("123456:TEST-token", tg_user, auth_date=1_600_000_000)
+    assert (await client.post("/api/v1/auth/telegram/webapp", json={"init_data": old})).status_code == 401
+    forged = _signed_init_data("999:other-bot", tg_user)
+    assert (await client.post("/api/v1/auth/telegram/webapp", json={"init_data": forged})).status_code == 401

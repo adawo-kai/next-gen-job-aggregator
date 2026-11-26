@@ -1,0 +1,94 @@
+# Production overlay for a single VPS:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# - Caddy terminates HTTPS (Let's Encrypt, automatic) for $DOMAIN
+# - nothing but 80/443 is published; DB, Redis, Grafana, Flower stay on the internal network
+# - nightly pg_dump with 14-day retention
+# Requires in .env: DOMAIN, JWT_SECRET, POSTGRES_PASSWORD, GRAFANA_PASSWORD, TELEGRAM_BOT_TOKEN
+
+x-prod-env: &prod-env
+  ENV: prod
+  DATABASE_URL: postgresql+asyncpg://jobs:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/jobs
+  REDIS_URL: redis://redis:6379/0
+  CORS_ORIGINS: https://${DOMAIN:?set DOMAIN}
+  WEBAPP_URL: https://${DOMAIN}
+  JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+  LOG_LEVEL: INFO
+
+services:
+  postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    restart: unless-stopped
+
+  redis:
+    ports: !reset []
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    restart: unless-stopped
+
+  bootstrap:
+    environment: *prod-env
+  api:
+    ports: !reset []
+    environment: *prod-env
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*", "--workers", "2"]
+  worker-collect:
+    environment: *prod-env
+  worker-pipeline:
+    environment: *prod-env
+  beat:
+    environment: *prod-env
+  bot:
+    environment: *prod-env
+  flower:
+    ports: !override ["127.0.0.1:5555:5555"]  # reachable only via SSH tunnel
+    environment: *prod-env
+  prometheus:
+    ports: !reset []
+    restart: unless-stopped
+  grafana:
+    ports: !override ["127.0.0.1:3001:3000"]  # reachable only via SSH tunnel
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD}
+    restart: unless-stopped
+
+  web:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2.8-alpine
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./ops/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web, api]
+    restart: unless-stopped
+
+  backup:
+    image: pgvector/pgvector:pg16
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes: [backups:/backups]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          f=/backups/jobs-$$(date +%F).sql.gz
+          pg_dump -h postgres -U jobs jobs | gzip > "$$f" && echo "backup ok $$f"
+          find /backups -name 'jobs-*.sql.gz' -mtime +14 -delete
+          sleep 86400
+        done
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes:
+  redisdata:
+  caddy_data:
+  caddy_config:
+  backups:

@@ -49,7 +49,10 @@ def render_card(v, score: int | None = None) -> str:
 def keyboard(v) -> dict:
     url = v.links[0].url if v.links else None
     rows = [[{"text": "⭐ В избранное", "callback_data": f"fav:{v.id}"}, {"text": "🙈 Скрыть", "callback_data": f"hide:{v.id}"}]]
-    if url:
+    app = get_settings().webapp_url
+    if app:
+        rows.append([{"text": "📱 Открыть в приложении", "web_app": {"url": f"{app.rstrip('/')}/tg/v/{v.id}"}}])
+    elif url:
         rows.append([{"text": "Открыть вакансию ↗", "url": url}])
     return {"inline_keyboard": rows}
 

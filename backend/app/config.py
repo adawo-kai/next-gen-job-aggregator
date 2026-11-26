@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # Telegram bot
     telegram_bot_token: str | None = None
     telegram_bot_username: str = "nextgen_jobs_bot"
+    # public HTTPS origin of the web app; the Telegram Mini App lives at {webapp_url}/tg
+    webapp_url: str | None = None
+    tg_init_data_ttl_seconds: int = 86400
 
     # dedup thresholds
     dedup_title_similarity: float = 0.55

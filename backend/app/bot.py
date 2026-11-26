@@ -7,7 +7,14 @@ from datetime import UTC, datetime
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandObject, CommandStart
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    MenuButtonWebApp,
+    Message,
+    WebAppInfo,
+)
 from sqlalchemy import select
 
 from app.config import get_settings
@@ -16,7 +23,16 @@ from app.models import TrackerEvent, TrackerItem, User, Vacancy
 from app.observability import log, setup_logging
 
 dp = Dispatcher()
-WEB = "http://localhost:3000"
+
+
+def webapp_url(path: str = "") -> str | None:
+    base = get_settings().webapp_url
+    return f"{base.rstrip('/')}/tg{path}" if base else None
+
+
+def open_app_kb(path: str = "", text: str = "📱 Открыть JobRadar") -> InlineKeyboardMarkup | None:
+    url = webapp_url(path)
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))]]) if url else None
 
 
 async def _user_by_chat(s, chat_id: int) -> User | None:
@@ -37,18 +53,24 @@ async def start(m: Message, command: CommandObject):
                 old.telegram_chat_id = None
             u.telegram_chat_id, u.tg_link_token, u.tg_link_expires = m.chat.id, None, None
             await s.commit()
-            await m.answer(f"✅ Аккаунт <b>{u.email}</b> привязан.\nНовые подходящие вакансии по вашим подпискам будут приходить сюда.", parse_mode="HTML")
+            await m.answer(f"✅ Аккаунт <b>{u.email}</b> привязан.\nНовые подходящие вакансии по вашим подпискам будут приходить сюда.",
+                           parse_mode="HTML", reply_markup=open_app_kb())
             return
     await m.answer(
-        "👋 Это бот <b>Next-Gen Job Aggregator</b>.\n\nЧтобы получать уведомления, откройте профиль на сайте и нажмите "
-        "«Привязать Telegram».\n\n/status — статус привязки\n/unlink — отвязать", parse_mode="HTML")
+        "👋 <b>JobRadar</b> — IT-вакансии с hh.ru, Habr Карьеры и Telegram-каналов в одной ленте: без дублей, "
+        "с саммари, красными флагами и процентом совпадения с вашими навыками.\n\n"
+        "Откройте приложение, укажите навыки — и новые подходящие вакансии будут приходить сюда.\n\n"
+        "/status — статус · /unlink — отключить уведомления",
+        parse_mode="HTML", reply_markup=open_app_kb())
 
 
 @dp.message(Command("status"))
 async def status(m: Message):
     async with SessionLocal() as s:
         u = await _user_by_chat(s, m.chat.id)
-    await m.answer(f"🔗 Привязан к {u.email}" if u else "Аккаунт не привязан.")
+    who = u and (u.display_name if u.email.endswith("@telegram.user") else u.email)
+    await m.answer(f"🔗 Уведомления включены ({who})." if u else "Аккаунт не привязан — откройте приложение.",
+                   reply_markup=open_app_kb())
 
 
 @dp.message(Command("unlink"))
@@ -98,7 +120,10 @@ async def main():
         while True:  # keep container healthy but idle
             await asyncio.sleep(3600)
     bot = Bot(token)
-    log.info("bot_started")
+    if app := webapp_url():
+        # the blue "menu" button next to the input field opens the Mini App
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="JobRadar", web_app=WebAppInfo(url=app)))
+    log.info("bot_started", webapp=app)
     await dp.start_polling(bot)
 
 

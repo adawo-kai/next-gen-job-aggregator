@@ -108,7 +108,10 @@ services:
     build:
       context: ./frontend
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+        # browser talks to the same origin; Next proxies /api/v1/* to the api container
+        NEXT_PUBLIC_API_URL: /api/v1
+        INTERNAL_API_URL: http://api:8000
+        NEXT_PUBLIC_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-NextGenJobAgr_bot}
     ports: ["3000:3000"]
     depends_on: [api]
     restart: unless-stopped

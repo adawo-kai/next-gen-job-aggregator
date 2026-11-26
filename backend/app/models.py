@@ -183,6 +183,9 @@ class User(Base):
     telegram_chat_id: Mapped[int | None] = mapped_column(BigInteger, unique=True)
     tg_link_token: Mapped[str | None] = mapped_column(String(64), unique=True)
     tg_link_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    display_name: Mapped[str | None] = mapped_column(String(128))
+    telegram_username: Mapped[str | None] = mapped_column(String(64))
+    photo_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = now_col()
 
     desired_salary: Mapped[int | None] = mapped_column(Integer)

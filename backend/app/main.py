@@ -15,6 +15,8 @@ from app.observability import HTTP_REQUESTS, log, setup_logging
 
 setup_logging("api")
 settings = get_settings()
+if settings.env == "prod" and (settings.jwt_secret.startswith(("change-me", "dev-secret")) or len(settings.jwt_secret) < 32):
+    raise RuntimeError("Refusing to start in prod with a weak JWT_SECRET (need 32+ random chars)")
 
 app = FastAPI(
     title="Next-Gen Job Aggregator API",

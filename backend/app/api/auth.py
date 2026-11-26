@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import secrets
+import time
 from datetime import UTC, datetime, timedelta
+from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
@@ -76,8 +81,67 @@ async def refresh(body: RefreshIn, session: AsyncSession = Depends(get_session))
 
 @router.get("/me")
 async def me(user: User = Depends(current_user)):
-    return {"id": user.id, "email": user.email, "telegram_linked": user.telegram_chat_id is not None,
+    return {"id": user.id, "email": None if user.email.endswith(TG_EMAIL_DOMAIN) else user.email,
+            "telegram_linked": user.telegram_chat_id is not None, "display_name": user.display_name,
+            "telegram_username": user.telegram_username, "photo_url": user.photo_url,
             "created_at": user.created_at.isoformat()}
+
+
+# ------------------------------------------------------------------ Telegram Mini App sign-in
+TG_EMAIL_DOMAIN = "@telegram.user"
+
+
+class WebAppIn(BaseModel):
+    init_data: str = Field(min_length=10, max_length=8192)
+
+
+def verify_init_data(init_data: str, bot_token: str, ttl: int) -> dict:
+    """Validate Telegram WebApp initData (HMAC-SHA256, key = HMAC("WebAppData", bot_token)).
+
+    https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
+    """
+    pairs = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=False))
+    received = pairs.pop("hash", None)
+    if not received:
+        raise HTTPException(401, "initData without hash")
+    check = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
+    secret = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+    expected = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, received):
+        raise HTTPException(401, "initData signature mismatch")
+    auth_date = int(pairs.get("auth_date", "0") or 0)
+    if ttl and time.time() - auth_date > ttl:
+        raise HTTPException(401, "initData expired, reopen the app")
+    try:
+        pairs["user"] = json.loads(pairs.get("user", "{}"))
+    except ValueError:
+        raise HTTPException(401, "bad user payload")
+    if not pairs["user"].get("id"):
+        raise HTTPException(401, "no user in initData")
+    return pairs
+
+
+@router.post("/telegram/webapp", response_model=TokensOut, summary="Sign in from Telegram Mini App (initData)")
+async def telegram_webapp(body: WebAppIn, request: Request, session: AsyncSession = Depends(get_session)):
+    s = get_settings()
+    if not s.telegram_bot_token:
+        raise HTTPException(503, "Telegram bot is not configured")
+    await _rate_limit(request, "tg-webapp", limit=30)
+    data = verify_init_data(body.init_data, s.telegram_bot_token, s.tg_init_data_ttl_seconds)
+    tg = data["user"]
+    tg_id = int(tg["id"])
+    name = " ".join(x for x in (tg.get("first_name"), tg.get("last_name")) if x).strip() or None
+    user = await session.scalar(select(User).where(User.telegram_chat_id == tg_id))
+    if user is None:
+        # first launch: an account keyed by Telegram id (private chat id == user id), no password login
+        user = User(email=f"tg{tg_id}{TG_EMAIL_DOMAIN}", password_hash=hash_password(secrets.token_urlsafe(32)),
+                    telegram_chat_id=tg_id, work_formats=[], skills=[], stop_words=[], hidden_vacancies=[])
+        session.add(user)
+    user.display_name = name or user.display_name
+    user.telegram_username = tg.get("username") or user.telegram_username
+    user.photo_url = tg.get("photo_url") or user.photo_url
+    await session.flush()
+    return await issue_tokens(session, user)
 
 
 @router.post("/telegram/link")
