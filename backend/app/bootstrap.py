@@ -49,7 +49,8 @@ async def main() -> None:
         await refresh_rates(session, Redis.from_url(s.redis_url, decode_responses=True))
         count = await session.scalar(select(func.count()).select_from(Vacancy))
 
-    if count == 0 and "demo" in s.enabled_sources:
+    # the generated dataset (fake companies) is for local dev/CI only — never in production
+    if count == 0 and "demo" in s.enabled_sources and s.env != "prod":
         from app.worker import _collect, _pipeline
 
         log.info("seeding_demo")

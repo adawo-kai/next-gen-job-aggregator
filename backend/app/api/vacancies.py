@@ -129,6 +129,29 @@ async def similar(vid: int, session: AsyncSession = Depends(get_session), user: 
     return [card(x, rates, "RUB", match_score(user, x, rates)) for x in best]
 
 
+@router.get("/seo/sitemap", summary="Vacancy ids for sitemap.xml (recent, non-ghost)")
+async def sitemap(session: AsyncSession = Depends(get_session)):
+    redis = get_redis()
+    try:
+        if hit := await redis.get("seo:sitemap"):
+            return json.loads(hit)
+    except Exception:
+        pass
+    from datetime import UTC, datetime, timedelta
+
+    since = datetime.now(UTC) - timedelta(days=60)
+    rows = (await session.execute(
+        select(Vacancy.id, Vacancy.last_seen_at).where(Vacancy.is_ghost.is_(False), Vacancy.last_seen_at >= since)
+        .order_by(Vacancy.last_seen_at.desc()).limit(45000)
+    )).all()
+    out = {"items": [{"id": i, "updated_at": ts.isoformat()} for i, ts in rows]}
+    try:
+        await redis.set("seo:sitemap", json.dumps(out), ex=1800)
+    except Exception:
+        pass
+    return out
+
+
 @router.post("/vacancies/{vid}/hide", status_code=204)
 async def hide(vid: int, session: AsyncSession = Depends(get_session), user: User = Depends(current_user)):
     await _get(session, vid)

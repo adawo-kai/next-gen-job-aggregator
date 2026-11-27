@@ -7,11 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from app.api import analytics, auth, profile, subscriptions, tracker, vacancies
+from app.api import account, analytics, auth, profile, subscriptions, tracker, vacancies
 from app.config import get_settings
 from app.db import ping_db
 from app.deps import get_redis
 from app.observability import HTTP_REQUESTS, log, setup_logging
+from app.ratelimit import rate_limit_middleware
 
 setup_logging("api")
 settings = get_settings()
@@ -41,6 +42,9 @@ app.add_middleware(
 )
 
 
+app.middleware("http")(rate_limit_middleware)
+
+
 @app.middleware("http")
 async def access_log(request: Request, call_next):
     t0 = time.perf_counter()
@@ -59,7 +63,7 @@ async def access_log(request: Request, call_next):
 
 
 api = APIRouter(prefix="/api/v1")
-for r in (auth.router, vacancies.router, profile.router, tracker.router, subscriptions.router, analytics.router):
+for r in (auth.router, account.router, vacancies.router, profile.router, tracker.router, subscriptions.router, analytics.router):
     api.include_router(r)
 
 

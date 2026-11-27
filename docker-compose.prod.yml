@@ -11,8 +11,16 @@ x-prod-env: &prod-env
   REDIS_URL: redis://redis:6379/0
   CORS_ORIGINS: https://${DOMAIN:?set DOMAIN}
   WEBAPP_URL: https://${DOMAIN}
+  PUBLIC_URL: https://${DOMAIN}
+  # behind a Cloudflare tunnel set REAL_IP_HEADER=cf-connecting-ip (Caddy: leave empty)
+  REAL_IP_HEADER: ${REAL_IP_HEADER:-}
   JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
   LOG_LEVEL: INFO
+  # real sources only: the generated demo dataset is never loaded in production
+  ENABLED_SOURCES: habr,telegram,hh
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  SMTP_URL: ${SMTP_URL:-}
+  MAIL_FROM: ${MAIL_FROM:-}
 
 services:
   postgres:
@@ -56,6 +64,12 @@ services:
 
   web:
     ports: !reset []
+    build:
+      args:
+        NEXT_PUBLIC_DEMO_FALLBACK: "0"
+        NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+        NEXT_PUBLIC_YM_ID: ${YM_ID:-}
+        NEXT_PUBLIC_SENTRY_DSN: ${SENTRY_DSN_WEB:-}
 
   caddy:
     image: caddy:2.8-alpine

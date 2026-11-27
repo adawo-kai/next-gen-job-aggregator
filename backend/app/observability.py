@@ -28,6 +28,22 @@ def setup_logging(service: str) -> None:
         cache_logger_on_first_use=True,
     )
     structlog.contextvars.bind_contextvars(service=service)
+    setup_sentry(service)
+
+
+def setup_sentry(service: str) -> None:
+    """Error monitoring, enabled only when SENTRY_DSN is set. No PII, low trace sampling."""
+    s = get_settings()
+    if not s.sentry_dsn:
+        return
+    try:
+        import sentry_sdk
+
+        sentry_sdk.init(dsn=s.sentry_dsn, environment=s.env, server_name=service, send_default_pii=False,
+                        traces_sample_rate=0.05, profiles_sample_rate=0.0)
+        sentry_sdk.set_tag("service", service)
+    except Exception as e:  # monitoring must never break startup
+        logging.getLogger(__name__).warning("sentry init failed: %s", e)
 
 
 log = structlog.get_logger()

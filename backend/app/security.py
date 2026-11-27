@@ -38,7 +38,7 @@ def _encode(payload: dict) -> str:
 async def issue_tokens(session: AsyncSession, user: User, family: str | None = None) -> dict:
     s = get_settings()
     now = datetime.now(UTC)
-    access = _encode({"sub": str(user.id), "type": "access", "iat": now, "exp": now + timedelta(seconds=s.access_ttl_seconds)})
+    access = _encode({"sub": str(user.id), "type": "access", "tv": user.token_version or 0, "iat": now, "exp": now + timedelta(seconds=s.access_ttl_seconds)})
     jti = secrets.token_hex(16)
     family = family or secrets.token_hex(16)
     exp = now + timedelta(days=s.refresh_ttl_days)
@@ -81,7 +81,10 @@ async def _user_from_creds(creds: HTTPAuthorizationCredentials | None, session: 
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
     if data.get("type") != "access":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token type")
-    return await session.get(User, int(data["sub"]))
+    user = await session.get(User, int(data["sub"]))
+    if user is not None and int(data.get("tv", 0)) != (user.token_version or 0):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session revoked")  # logged out everywhere
+    return user
 
 
 async def current_user(
@@ -102,3 +105,9 @@ async def optional_user(
         return await _user_from_creds(creds, session)
     except HTTPException:
         return None
+
+
+async def revoke_all_sessions(session: AsyncSession, user: User) -> None:
+    """Kill every refresh token and, via token_version, every outstanding access token of the user."""
+    await session.execute(update(RefreshToken).where(RefreshToken.user_id == user.id).values(revoked=True))
+    user.token_version = (user.token_version or 0) + 1

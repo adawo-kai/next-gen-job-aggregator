@@ -54,6 +54,18 @@ class Settings(BaseSettings):
     webapp_url: str | None = None
     tg_init_data_ttl_seconds: int = 86400
 
+    # rate limiting / proxies
+    rate_limit_enabled: bool = True
+    real_ip_header: str | None = None  # e.g. "cf-connecting-ip" behind a Cloudflare tunnel
+
+    # outgoing mail (password reset). smtp(s)://user:pass@host:port — empty = links are only logged
+    smtp_url: str | None = None
+    mail_from: str = "JobRadar <noreply@localhost>"
+    public_url: str = "http://localhost:3000"  # used in e-mail links
+
+    # error monitoring
+    sentry_dsn: str | None = None
+
     # dedup thresholds
     dedup_title_similarity: float = 0.55
     dedup_text_similarity: float = 0.35

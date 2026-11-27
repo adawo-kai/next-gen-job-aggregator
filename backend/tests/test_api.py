@@ -301,3 +301,86 @@ async def test_mini_app_sign_in(client, monkeypatch):
     assert (await client.post("/api/v1/auth/telegram/webapp", json={"init_data": old})).status_code == 401
     forged = _signed_init_data("999:other-bot", tg_user)
     assert (await client.post("/api/v1/auth/telegram/webapp", json={"init_data": forged})).status_code == 401
+
+
+async def test_global_rate_limit(client, monkeypatch):
+    """Expensive endpoints are throttled per client IP with 429 + Retry-After; health is never limited."""
+    from app import ratelimit
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "rate_limit_enabled", True)
+    monkeypatch.setattr(ratelimit, "RULES", [("/api/v1/meta/", "*", 3, 60), *ratelimit.RULES])
+    ip = f"203.0.113.{uuid.uuid4().int % 250}"
+    monkeypatch.setattr(get_settings(), "real_ip_header", "x-test-ip")
+    codes = [(await client.get("/api/v1/meta/filters", headers={"x-test-ip": ip})).status_code for _ in range(5)]
+    assert codes[:3] == [200, 200, 200] and codes[3:] == [429, 429]
+    r = await client.get("/api/v1/meta/filters", headers={"x-test-ip": ip})
+    assert int(r.headers["Retry-After"]) > 0
+    # another client is not affected, health checks are exempt
+    assert (await client.get("/api/v1/meta/filters", headers={"x-test-ip": ip + "9"})).status_code == 200
+    health = [(await client.get("/health", headers={"x-test-ip": ip})).status_code for _ in range(5)]
+    assert health == [200] * 5
+
+
+async def test_password_reset_change_logout_export_delete(client, monkeypatch):
+    """Full account lifecycle: forgot → mail link → reset → change → logout-all → export → delete."""
+    from app.api import account
+
+    mails: list[tuple[str, str]] = []
+
+    async def fake_mail(to, subject, text, html=None):
+        mails.append((to, text))
+        return True
+
+    monkeypatch.setattr(account, "send_mail", fake_mail)
+    email = f"acc{uuid.uuid4().hex[:8]}@test.dev"
+    t0 = (await client.post("/api/v1/auth/register", json={"email": email, "password": "first-pass1"})).json()
+
+    # unknown e-mail: same answer, no mail (no user enumeration)
+    assert (await client.post("/api/v1/auth/password/forgot", json={"email": "nobody@test.dev"})).status_code == 202
+    assert (await client.post("/api/v1/auth/password/forgot", json={"email": email})).status_code == 202
+    assert len(mails) == 1 and mails[0][0] == email
+    token = mails[0][1].split("token=")[1].split()[0]
+
+    bad = await client.post("/api/v1/auth/password/reset", json={"token": "x" * 40, "password": "whatever123"})
+    assert bad.status_code == 400
+    t1 = (await client.post("/api/v1/auth/password/reset", json={"token": token, "password": "second-pass2"})).json()
+    # one-time token; old sessions are dead
+    assert (await client.post("/api/v1/auth/password/reset", json={"token": token, "password": "x-pass-333"})).status_code == 400
+    assert (await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {t0['access_token']}"})).status_code == 401
+    assert (await client.post("/api/v1/auth/login", json={"email": email, "password": "second-pass2"})).status_code == 200
+
+    hdr = {"Authorization": f"Bearer {t1['access_token']}"}
+    wrong = await client.post("/api/v1/auth/password/change", headers=hdr,
+                              json={"current_password": "nope", "new_password": "third-pass3"})
+    assert wrong.status_code == 400
+    t2 = (await client.post("/api/v1/auth/password/change", headers=hdr,
+                            json={"current_password": "second-pass2", "new_password": "third-pass3"})).json()
+    assert (await client.get("/api/v1/auth/me", headers=hdr)).status_code == 401  # other sessions revoked
+    hdr = {"Authorization": f"Bearer {t2['access_token']}"}
+
+    # logout one session: its refresh token stops working
+    assert (await client.post("/api/v1/auth/logout", json={"refresh_token": t2["refresh_token"]})).status_code == 204
+    assert (await client.post("/api/v1/auth/refresh", json={"refresh_token": t2["refresh_token"]})).status_code == 401
+
+    t3 = (await client.post("/api/v1/auth/login", json={"email": email, "password": "third-pass3"})).json()
+    hdr = {"Authorization": f"Bearer {t3['access_token']}"}
+    vid = (await client.get("/api/v1/vacancies", params={"limit": 1})).json()["items"][0]["id"]
+    await client.post("/api/v1/tracker", headers=hdr, json={"vacancy_id": vid})
+    exp = await client.get("/api/v1/auth/me/export", headers=hdr)
+    assert exp.status_code == 200 and "attachment" in exp.headers["content-disposition"]
+    assert exp.json()["account"]["email"] == email and len(exp.json()["tracker"]) == 1
+
+    assert (await client.post("/api/v1/auth/logout-all", headers=hdr)).status_code == 204
+    assert (await client.get("/api/v1/auth/me", headers=hdr)).status_code == 401  # access token killed instantly
+
+    t4 = (await client.post("/api/v1/auth/login", json={"email": email, "password": "third-pass3"})).json()
+    hdr = {"Authorization": f"Bearer {t4['access_token']}"}
+    assert (await client.request("DELETE", "/api/v1/auth/me", headers=hdr, json={"confirm": "нет"})).status_code == 400
+    assert (await client.request("DELETE", "/api/v1/auth/me", headers=hdr, json={"confirm": "УДАЛИТЬ"})).status_code == 204
+    assert (await client.post("/api/v1/auth/login", json={"email": email, "password": "third-pass3"})).status_code == 401
+
+
+async def test_sitemap_endpoint(client):
+    items = (await client.get("/api/v1/seo/sitemap")).json()["items"]
+    assert items and {"id", "updated_at"} <= set(items[0])

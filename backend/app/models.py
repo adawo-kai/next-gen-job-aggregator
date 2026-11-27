@@ -186,6 +186,8 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(128))
     telegram_username: Mapped[str | None] = mapped_column(String(64))
     photo_url: Mapped[str | None] = mapped_column(Text)
+    # bumped by "log out everywhere" / password change: access tokens carry it and die immediately
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = now_col()
 
     desired_salary: Mapped[int | None] = mapped_column(Integer)
@@ -207,6 +209,18 @@ class RefreshToken(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used: Mapped[bool] = mapped_column(Boolean, default=False)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class PasswordReset(Base):
+    """One-time password reset token; only its SHA-256 is stored."""
+
+    __tablename__ = "password_resets"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = now_col()
 
 
 class TrackerItem(Base):
