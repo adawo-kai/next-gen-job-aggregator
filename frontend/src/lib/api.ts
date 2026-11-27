@@ -1,6 +1,5 @@
 "use client";
 
-import { MockHttpError, mockRequest } from "./mock-api";
 import type {
   MarketAnalytics,
   MatchExplanation,
@@ -22,8 +21,21 @@ import type {
   VacancyPage,
 } from "./types";
 
+// Absolute ("http://host:8000/api/v1") or relative ("/api/v1", served by the Next.js same-origin proxy).
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1").replace(/\/+$/, "");
 const FORCE_MOCK = process.env.NEXT_PUBLIC_MOCK === "1";
+
+/* The demo/mock fallback exists for the portfolio website only. Real users of the Telegram Mini App must
+   never see fake data, so it is switched off for /tg routes (and explicitly by the Mini App shell). */
+let mockDisabled = false;
+export function disableMockFallback() {
+  mockDisabled = true;
+}
+function mockAllowed() {
+  if (mockDisabled) return false;
+  if (typeof window !== "undefined" && /^\/tg(\/|$)/.test(window.location.pathname)) return false;
+  return true;
+}
 
 export class ApiError extends Error {
   constructor(public status: number, public detail: string) {
@@ -81,7 +93,8 @@ export const mockMode = {
 };
 
 function setMock(v: boolean) {
-  if (FORCE_MOCK) v = true;
+  if (!mockAllowed()) v = false;
+  else if (FORCE_MOCK) v = true;
   if (v) mockSince = Date.now();
   if (v !== mockActive) {
     mockActive = v;
@@ -90,15 +103,26 @@ function setMock(v: boolean) {
 }
 
 function shouldSkipNetwork() {
+  if (!mockAllowed()) return false;
   return FORCE_MOCK || (mockActive && Date.now() - mockSince < RETRY_BACKEND_MS);
 }
 
 /* ---------------- core request ---------------- */
 
-type Opts = { method?: string; body?: unknown; auth?: boolean; form?: FormData };
+type Opts = { method?: string; body?: unknown; auth?: boolean; form?: FormData; timeoutMs?: number };
 
-async function viaMock<T>(path: string, o: Opts): Promise<T> {
+/** ApiError.status for network-level failures (offline, timeout, DNS). */
+export const NETWORK_ERROR = 0;
+
+async function viaMock<T>(path: string, o: Opts, failed?: Response): Promise<T> {
+  if (!mockAllowed()) {
+    // real users: surface the actual failure instead of silently showing demo data
+    if (failed) throw await parseError(failed);
+    throw new ApiError(NETWORK_ERROR, "Нет соединения с сервером");
+  }
   setMock(true);
+  // loaded on demand: the demo dataset never ships to clients that talk to a live backend (e.g. the Mini App)
+  const { MockHttpError, mockRequest } = await import("./mock-api");
   try {
     return (await mockRequest(o.method ?? "GET", path, o.body, !!tokens.access)) as T;
   } catch (e) {
@@ -138,7 +162,7 @@ async function rawFetch(path: string, o: Opts): Promise<Response> {
   const at = tokens.access;
   if (at) headers.Authorization = `Bearer ${at}`;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 8000);
+  const timer = setTimeout(() => ctrl.abort(), o.timeoutMs ?? 8000);
   try {
     return await fetch(`${API_URL}${path}`, {
       method: o.method ?? "GET",
@@ -163,8 +187,11 @@ async function parseError(res: Response): Promise<ApiError> {
 
 const isMockToken = (t: string | null) => !!t && t.startsWith("mock");
 
+// endpoints that issue tokens themselves: a 401 there must not trigger a refresh round-trip
+const NO_REFRESH = /^\/auth\/(login|register|refresh|telegram\/)/;
+
 export async function request<T>(path: string, o: Opts = {}): Promise<T> {
-  if (shouldSkipNetwork() || isMockToken(tokens.access)) return viaMock<T>(path, o);
+  if (shouldSkipNetwork() || (isMockToken(tokens.access) && mockAllowed())) return viaMock<T>(path, o);
 
   let res: Response;
   try {
@@ -173,7 +200,7 @@ export async function request<T>(path: string, o: Opts = {}): Promise<T> {
     // network error / CORS / timeout -> demo mode
     return viaMock<T>(path, o);
   }
-  if (res.status === 401 && tokens.refresh && !path.startsWith("/auth/")) {
+  if (res.status === 401 && tokens.refresh && !NO_REFRESH.test(path)) {
     const ok = await refreshTokens();
     if (ok) {
       try {
@@ -185,13 +212,13 @@ export async function request<T>(path: string, o: Opts = {}): Promise<T> {
       tokens.clear();
     }
   }
-  if ([502, 503, 504].includes(res.status)) return viaMock<T>(path, o);
+  if ([502, 503, 504].includes(res.status)) return viaMock<T>(path, o, res);
   if (res.status === 404 || res.status === 405) {
     // Route not implemented yet on the backend (FastAPI default body) -> fallback
     const clone = res.clone();
     try {
       const j = await clone.json();
-      if (j?.detail === "Not Found" || j?.detail === "Method Not Allowed") return viaMock<T>(path, o);
+      if ((j?.detail === "Not Found" || j?.detail === "Method Not Allowed") && mockAllowed()) return viaMock<T>(path, o);
     } catch {}
   }
   if (!res.ok) throw await parseError(res);
@@ -231,15 +258,18 @@ export const api = {
   login: (email: string, password: string) => request<Tokens>("/auth/login", { method: "POST", body: { email, password } }),
   register: (email: string, password: string) => request<Tokens>("/auth/register", { method: "POST", body: { email, password } }),
   me: () => request<Me>("/auth/me"),
+  /** Mini App sign-in: exchanges signed `Telegram.WebApp.initData` for tokens (account is created on first launch). */
+  telegramWebApp: (initData: string) =>
+    request<Tokens>("/auth/telegram/webapp", { method: "POST", body: { init_data: initData }, timeoutMs: 12_000 }),
   telegramLink: () => request<{ deep_link: string; expires_at: string }>("/auth/telegram/link", { method: "POST", body: {} }),
 
   profile: () => request<Profile>("/profile"),
   saveProfile: (p: Profile) => request<Profile>("/profile", { method: "PUT", body: p }),
-  uploadResumeText: (text: string) => request<ResumeResult>("/profile/resume", { method: "POST", body: { text } }),
+  uploadResumeText: (text: string) => request<ResumeResult>("/profile/resume", { method: "POST", body: { text }, timeoutMs: 30_000 }),
   uploadResumeFile: (file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return request<ResumeResult>("/profile/resume", { method: "POST", form, body: {} });
+    return request<ResumeResult>("/profile/resume", { method: "POST", form, body: {}, timeoutMs: 45_000 });
   },
 
   vacancies: (f: VacancyFilters, cursor?: string | null, limit = 20) =>
@@ -247,6 +277,7 @@ export const api = {
   vacancy: (id: number | string) => request<VacancyDetail>(`/vacancies/${id}`),
   match: (id: number | string) => request<MatchExplanation>(`/vacancies/${id}/match`),
   similar: (id: number | string) => request<VacancyCard[]>(`/vacancies/${id}/similar`),
+  hideVacancy: (id: number | string) => request<void>(`/vacancies/${id}/hide`, { method: "POST" }),
   meta: () => request<MetaFilters>("/meta/filters"),
 
   tracker: () => request<TrackerBoard>("/tracker"),

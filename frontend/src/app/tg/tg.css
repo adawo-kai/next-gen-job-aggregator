@@ -1,0 +1,201 @@
+/* Telegram Mini App theme: Telegram theme params (set as --tg-theme-* by the SDK / our early script)
+   are mapped onto the app's design tokens, so shared utilities (bg-card, text-muted-foreground…) follow
+   the user's Telegram theme. Fallbacks mirror Telegram's default light / night palettes. */
+
+html.tg {
+  --tg-bg: var(--tg-theme-bg-color, #ffffff);
+  --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #f0f0f3);
+  --tg-section-bg: var(--tg-theme-section-bg-color, var(--tg-bg));
+  --tg-text: var(--tg-theme-text-color, #000000);
+  --tg-hint: var(--tg-theme-hint-color, #8a8a8e);
+  --tg-subtitle: var(--tg-theme-subtitle-text-color, var(--tg-hint));
+  --tg-link: var(--tg-theme-link-color, #2481cc);
+  --tg-accent: var(--tg-theme-accent-text-color, var(--tg-link));
+  --tg-button: var(--tg-theme-button-color, #2481cc);
+  --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+  --tg-destructive: var(--tg-theme-destructive-text-color, #e53935);
+  --tg-section-header: var(--tg-theme-section-header-text-color, var(--tg-hint));
+  --tg-separator: var(--tg-theme-section-separator-color, color-mix(in srgb, var(--tg-hint) 24%, transparent));
+
+  --background: var(--tg-secondary-bg);
+  --foreground: var(--tg-text);
+  --card: var(--tg-section-bg);
+  --card-foreground: var(--tg-text);
+  --elevated: var(--tg-section-bg);
+  --muted: color-mix(in srgb, var(--tg-hint) 13%, transparent);
+  --muted-foreground: var(--tg-hint);
+  --border: color-mix(in srgb, var(--tg-hint) 20%, transparent);
+  --border-strong: color-mix(in srgb, var(--tg-hint) 34%, transparent);
+  --input: color-mix(in srgb, var(--tg-hint) 14%, transparent);
+  --ring: color-mix(in srgb, var(--tg-button) 45%, transparent);
+  --primary: var(--tg-button);
+  --primary-foreground: var(--tg-button-text);
+  --accent: var(--tg-accent);
+
+  /* safe areas: Telegram (fullscreen, Bot API 8.0+) or the platform */
+  --tg-safe-top: max(var(--tg-safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+  --tg-safe-bottom: max(var(--tg-safe-area-inset-bottom, 0px), env(safe-area-inset-bottom, 0px));
+  --tg-content-top: calc(var(--tg-safe-top) + var(--tg-content-safe-area-inset-top, 0px));
+  --tg-tabbar-h: 56px;
+
+  background: var(--background);
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.tg.dark {
+  --tg-bg: var(--tg-theme-bg-color, #212d3b);
+  --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #151e27);
+  --tg-text: var(--tg-theme-text-color, #ffffff);
+  --tg-hint: var(--tg-theme-hint-color, #7d8b99);
+  --tg-link: var(--tg-theme-link-color, #5eb5f7);
+  --tg-button: var(--tg-theme-button-color, #5288c1);
+  --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+  --tg-destructive: var(--tg-theme-destructive-text-color, #ff6767);
+}
+
+html.tg body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", system-ui, sans-serif;
+  font-feature-settings: normal;
+  font-size: 16px;
+  line-height: 1.35;
+  overscroll-behavior: none;
+  min-height: var(--tg-viewport-stable-height, 100dvh);
+}
+
+html.tg ::selection {
+  background: color-mix(in srgb, var(--tg-button) 30%, transparent);
+}
+
+/* touch: no sticky hover states, no text selection on controls, instant press feedback */
+html.tg button,
+html.tg [role="button"],
+html.tg a {
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.tg-press {
+  transition: transform 120ms ease, opacity 120ms ease, background-color 120ms ease;
+}
+.tg-press:active {
+  transform: scale(0.98);
+  opacity: 0.85;
+}
+
+.tg-scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+.tg-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+.tg-hairline {
+  box-shadow: inset 0 -0.5px 0 var(--tg-separator);
+}
+
+.tg-desc :where(p, ul, ol) {
+  margin: 0.35rem 0;
+}
+.tg-desc :where(ul, ol) {
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+.tg-desc :where(a) {
+  color: var(--tg-link);
+}
+.tg-desc :where(h1, h2, h3, h4, strong, b) {
+  font-weight: 600;
+}
+
+.tg-skeleton {
+  background: linear-gradient(90deg, var(--muted) 25%, color-mix(in srgb, var(--tg-hint) 22%, transparent) 50%, var(--muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+input.tg-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 28px;
+  background: transparent;
+  width: 100%;
+}
+input.tg-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--tg-button) var(--fill, 50%), var(--border-strong) var(--fill, 50%));
+}
+input.tg-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+input.tg-range::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--tg-button);
+}
+input.tg-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -11px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+}
+input.tg-range::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* ---- motion (CSS only: the Mini App ships no animation library) ---- */
+@keyframes tg-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes tg-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes tg-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.tg-pop { animation: tg-pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.tg-fade-up { animation: tg-fade-up 240ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.tg-fade { animation: tg-fade 200ms ease-out both; }
+
+.tg-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease;
+}
+.tg-collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.tg-collapse > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tg-sheet-backdrop { transition: opacity 240ms ease; }
+.tg-sheet {
+  transition: transform 340ms cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+}

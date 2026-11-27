@@ -13,9 +13,13 @@ export interface Tokens {
 
 export interface Me {
   id: number | string;
-  email: string;
+  /** null for accounts created from the Telegram Mini App */
+  email: string | null;
   telegram_linked: boolean;
   created_at: string;
+  display_name?: string | null;
+  telegram_username?: string | null;
+  photo_url?: string | null;
 }
 
 export interface Profile {
@@ -165,6 +169,8 @@ export interface TrackerItem {
 
 export interface TrackerBoard {
   columns: Record<TrackerStatus, TrackerItem[]>;
+  /** allowed next statuses per status (state machine on the backend) */
+  transitions?: Record<TrackerStatus, TrackerStatus[]>;
 }
 
 export interface TrackerEvent {

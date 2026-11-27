@@ -6,8 +6,15 @@ RUN npm ci --no-audit --no-fund
 
 FROM node:22-alpine AS builder
 WORKDIR /app
+# browser API base; may be relative ("/api/v1") to go through the same-origin proxy below
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+# where the Next server proxies /api/v1/* (rewrites are resolved at build time, so it must be set here)
+ARG INTERNAL_API_URL=http://localhost:8000
+# bot linked from the "open in Telegram" screen of the Mini App
+ARG NEXT_PUBLIC_BOT_USERNAME=NextGenJobAgr_bot
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV INTERNAL_API_URL=${INTERNAL_API_URL}
+ENV NEXT_PUBLIC_BOT_USERNAME=${NEXT_PUBLIC_BOT_USERNAME}
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

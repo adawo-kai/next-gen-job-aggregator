@@ -1,28 +1,9 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "next-themes";
-import { Toaster } from "sonner";
 import { useState } from "react";
-import { TooltipProvider } from "@/components/ui/primitives";
-import { useTheme } from "next-themes";
 
-function ThemedToaster() {
-  const { resolvedTheme } = useTheme();
-  return (
-    <Toaster
-      theme={(resolvedTheme as "dark" | "light") ?? "dark"}
-      position="bottom-right"
-      toastOptions={{
-        classNames: {
-          toast: "!rounded-xl !border !border-border !bg-elevated !text-foreground !shadow-2xl !shadow-black/30",
-          description: "!text-muted-foreground",
-        },
-      }}
-    />
-  );
-}
-
+/** App-wide providers shared by the website and the Telegram Mini App (kept minimal on purpose). */
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
     () =>
@@ -32,14 +13,5 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }),
   );
-  return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-      <QueryClientProvider client={client}>
-        <TooltipProvider delayDuration={120}>
-          {children}
-          <ThemedToaster />
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
-  );
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
