@@ -4,8 +4,8 @@ import { TgShell } from "@/components/tg/shell";
 import "./tg.css";
 
 export const metadata: Metadata = {
-  title: "JobRadar",
-  description: "IT-вакансии с hh.ru, Habr Карьеры и Telegram — с match score, AI-саммари и трекером откликов.",
+  title: { absolute: "JobRadar" },
+  description: "IT-вакансии с hh.ru, Habr Карьеры, DevKG и Telegram — с match score, AI-саммари и трекером откликов.",
   robots: { index: false, follow: false },
 };
 

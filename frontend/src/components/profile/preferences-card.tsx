@@ -13,7 +13,7 @@ import { TagInput } from "./tag-input";
 
 const GRADES: Grade[] = ["intern", "junior", "middle", "senior", "lead"];
 const FORMATS: Format[] = ["remote", "hybrid", "office"];
-const CURRENCIES: Currency[] = ["RUB", "USD", "EUR", "KZT"];
+const CURRENCIES: Currency[] = ["RUB", "USD", "EUR", "KZT", "KGS"];
 const SKILL_SUGGESTIONS = ["Python", "TypeScript", "React", "Go", "PostgreSQL", "Docker", "Kubernetes", "Kafka", "Redis", "FastAPI", "Next.js", "SQL"];
 
 export function PreferencesCard({ profile, loading }: { profile: Profile | undefined; loading: boolean }) {
@@ -88,7 +88,7 @@ export function PreferencesCard({ profile, loading }: { profile: Profile | undef
                   value={form.desired_salary ?? ""}
                   onChange={(e) => set("desired_salary", e.target.value === "" ? null : Number(e.target.value))}
                   placeholder="250000"
-                  className="pr-8 tabular-nums"
+                  className="pr-12 tabular-nums"
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySign(form.currency)}</span>
               </div>

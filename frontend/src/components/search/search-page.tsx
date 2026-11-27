@@ -48,6 +48,17 @@ export function SearchPage() {
   const [hydrated, setHydrated] = useState(false);
   const [mobileFilters, setMobileFilters] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const heroSearchRef = useRef<HTMLDivElement>(null);
+  const [heroInView, setHeroInView] = useState(true);
+
+  useEffect(() => {
+    const el = heroSearchRef.current;
+    if (!el) return;
+    // 56px = sticky site header
+    const io = new IntersectionObserver(([e]) => setHeroInView(e.isIntersecting), { rootMargin: "-56px 0px 0px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   // hydrate from localStorage + ?q=
   useEffect(() => {
@@ -126,27 +137,10 @@ export function SearchPage() {
 
   return (
     <div>
-      {/* ---------- Hero ---------- */}
-      <section className="relative pb-8 pt-6 text-center sm:pb-10 sm:pt-12">
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border bg-card/60 px-3 py-1 text-[12px] text-muted-foreground backdrop-blur">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            </span>
-            hh.ru · Habr Карьера · Telegram — обновляется каждые 15 минут
-          </div>
-          <h1 className="mx-auto max-w-3xl text-balance text-4xl font-semibold tracking-[-0.035em] sm:text-6xl">
-            <span className="text-gradient">Все IT-вакансии.</span>
-            <br />
-            <span className="text-brand">Без дублей и воды.</span>
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-balance text-[15px] leading-relaxed text-muted-foreground sm:text-base">
-            Склеиваем одну вакансию с трёх площадок, AI выжимает суть, считает match с вашим резюме и подсвечивает red flags и вечный поиск.
-          </p>
-        </motion.div>
-
+      {/* ---------- Search (the hero heading is server-rendered by the page) ---------- */}
+      <section className="relative pb-8 text-center sm:pb-10">
         <motion.div
+          ref={heroSearchRef}
           initial={{ opacity: 0, y: 12, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.08 }}
@@ -180,7 +174,7 @@ export function SearchPage() {
         <div className="mx-auto mt-4 flex max-w-2xl flex-wrap items-center justify-center gap-2 text-[12.5px] text-muted-foreground">
           <span>Попробуйте:</span>
           {SUGGESTIONS.map((s) => (
-            <button key={s} onClick={() => setFilters({ ...filters, q: s })} className="cursor-pointer rounded-full border px-2.5 py-0.5 transition-colors hover:border-border-strong hover:text-foreground">
+            <button key={s} onClick={() => setFilters({ ...filters, q: s })} className="inline-flex h-10 cursor-pointer items-center rounded-full border px-3 transition-colors hover:border-border-strong hover:text-foreground sm:h-7 sm:px-2.5">
               {s}
             </button>
           ))}
@@ -205,6 +199,43 @@ export function SearchPage() {
         )}
       </section>
 
+      {/* ---------- Mobile: compact sticky search once the hero search scrolls away ---------- */}
+      <AnimatePresence>
+        {!heroInView && (
+          <motion.div
+            initial={{ y: -12, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -12, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-x-0 top-14 z-30 border-b bg-background/90 px-4 py-2 backdrop-blur-xl lg:hidden"
+          >
+            <div className="mx-auto flex max-w-2xl items-center gap-2">
+              <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl bg-muted/70 px-3 ring-1 ring-inset ring-border focus-within:ring-2 focus-within:ring-ring">
+                <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <input
+                  value={filters.q ?? ""}
+                  onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+                  placeholder="Поиск вакансий"
+                  enterKeyHint="search"
+                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                  className="h-full min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted-foreground/60"
+                  aria-label="Поиск вакансий"
+                />
+                {filters.q && (
+                  <button onClick={() => setFilters({ ...filters, q: "" })} className="-mr-2 grid h-10 w-10 shrink-0 cursor-pointer place-items-center text-muted-foreground" aria-label="Очистить">
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <Button variant="secondary" className="relative h-10 w-10 shrink-0 px-0" onClick={() => setMobileFilters(true)} aria-label="Фильтры">
+                <SlidersHorizontal className="h-4 w-4" />
+                {filterCount > 0 && <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground">{filterCount}</span>}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ---------- Body ---------- */}
       <div className="grid gap-6 lg:grid-cols-[272px_1fr]">
         <aside className="hidden lg:block">
@@ -216,7 +247,9 @@ export function SearchPage() {
         <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[13.5px] text-muted-foreground">
-              {query.isLoading || !hydrated ? (
+              {query.isError ? (
+                <span>Нет данных</span>
+              ) : query.isLoading || !hydrated ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" /> Ищем вакансии…
                 </span>
@@ -227,13 +260,13 @@ export function SearchPage() {
               )}
               {query.isFetching && !query.isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" className="lg:hidden" onClick={() => setMobileFilters(true)}>
+            <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+              <Button variant="secondary" size="sm" className="h-10 shrink-0 lg:hidden" onClick={() => setMobileFilters(true)}>
                 <SlidersHorizontal className="h-3.5 w-3.5" /> Фильтры
                 {filterCount > 0 && <span className="rounded-full bg-primary px-1.5 text-[10.5px] text-primary-foreground">{filterCount}</span>}
               </Button>
-              <div className="flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5 ring-1 ring-inset ring-border">
-                <ArrowDownWideNarrow className="ml-1.5 h-3.5 w-3.5 text-muted-foreground" />
+              <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-lg bg-muted/60 p-0.5 ring-1 ring-inset ring-border [scrollbar-width:none]">
+                <ArrowDownWideNarrow className="ml-1.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 {SORTS.map((s) => {
                   const disabled = s.auth && !isAuthed;
                   const active = filters.sort === s.key;
@@ -244,7 +277,7 @@ export function SearchPage() {
                       title={disabled ? "Войдите, чтобы сортировать по match score" : undefined}
                       onClick={() => setFilters({ ...filters, sort: s.key })}
                       className={cn(
-                        "relative cursor-pointer rounded-md px-2 py-1 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:px-2.5",
+                        "relative h-9 shrink-0 cursor-pointer whitespace-nowrap rounded-md px-2 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:h-7 sm:px-2.5",
                         active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                       )}
                     >

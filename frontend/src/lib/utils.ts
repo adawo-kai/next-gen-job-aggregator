@@ -26,6 +26,7 @@ export const SOURCE_META: Record<string, SourceStyle> = {
   hh: { title: "hh.ru", short: "hh", className: "text-rose-500 dark:text-rose-300 bg-rose-500/10 ring-rose-500/25", dot: "bg-rose-400", color: "#fb7185" },
   habr: { title: "Habr Карьера", short: "Habr", className: "text-sky-600 dark:text-sky-300 bg-sky-500/10 ring-sky-500/25", dot: "bg-sky-400", color: "#38bdf8" },
   telegram: { title: "Telegram", short: "Telegram", className: "text-cyan-600 dark:text-cyan-300 bg-cyan-500/10 ring-cyan-500/25", dot: "bg-cyan-400", color: "#22d3ee" },
+  devkg: { title: "DevKG", short: "DevKG", className: "text-teal-600 dark:text-teal-300 bg-teal-500/10 ring-teal-500/25", dot: "bg-teal-400", color: "#2dd4bf" },
   demo: { title: "Demo", short: "Demo", className: "text-zinc-500 dark:text-zinc-300 bg-zinc-500/10 ring-zinc-500/25", dot: "bg-zinc-400", color: "#a1a1aa" },
 };
 
@@ -52,7 +53,7 @@ export const STATUS_META: Record<TrackerStatus, { title: string; dot: string; co
 
 export const STATUS_ORDER: TrackerStatus[] = ["saved", "applied", "test_task", "interview", "offer", "rejected"];
 
-const CURRENCY_SIGN: Record<string, string> = { RUB: "₽", USD: "$", EUR: "€", KZT: "₸" };
+const CURRENCY_SIGN: Record<string, string> = { RUB: "₽", USD: "$", EUR: "€", KZT: "₸", KGS: "сом" };
 export const currencySign = (c: string) => CURRENCY_SIGN[c] ?? c;
 
 function num(n: number, compact: boolean) {

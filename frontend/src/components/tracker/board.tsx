@@ -99,7 +99,7 @@ function Column({
   return (
     <div
       className={cn(
-        "flex min-h-[420px] flex-col rounded-2xl border bg-muted/30 transition-[background,border-color,box-shadow] duration-200",
+        "flex min-h-[420px] snap-start flex-col rounded-2xl border bg-muted/30 transition-[background,border-color,box-shadow] duration-200",
         highlighted && "border-border-strong bg-muted/60 shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_10%,transparent)]",
       )}
     >
@@ -238,8 +238,9 @@ export function KanbanBoard({ board, onOpen }: { board: TrackerBoard; onOpen: (i
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-      <div className="-mx-4 overflow-x-auto px-4 pb-4 scrollbar-thin sm:-mx-6 sm:px-6">
-        <div className="grid grid-cols-[repeat(6,minmax(250px,1fr))] gap-2.5 xl:grid-cols-[repeat(6,minmax(196px,1fr))]">
+      {/* phones: one column ≈ 82% of the screen, swiped with snap; desktop: all six side by side */}
+      <div className="-mx-4 snap-x snap-mandatory scroll-px-4 overflow-x-auto overscroll-x-contain px-4 pb-4 scrollbar-thin sm:-mx-6 sm:scroll-px-6 sm:px-6 md:snap-none">
+        <div className="grid grid-cols-[repeat(6,82vw)] gap-2.5 sm:grid-cols-[repeat(6,minmax(250px,1fr))] xl:grid-cols-[repeat(6,minmax(196px,1fr))]">
           {STATUS_ORDER.map((s) => (
             <Column key={s} status={s} items={cols[s]} highlighted={!!activeId && overCol === s} onOpen={open} />
           ))}

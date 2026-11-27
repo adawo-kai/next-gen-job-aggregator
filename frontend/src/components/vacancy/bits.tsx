@@ -8,6 +8,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { track } from "@/lib/analytics";
 import type { RedFlag, Salary, VacancySource } from "@/lib/types";
 import { cn, formatDate, formatMoney, formatSalary, hashHue, initials, plural, scoreTone, sourceMeta, trustTone } from "@/lib/utils";
 import { Badge, Button, Tooltip } from "@/components/ui/primitives";
@@ -56,7 +57,7 @@ export function SourceBadge({ source, url }: { source: string; url?: string }) {
   );
   if (!url) return inner;
   return (
-    <a href={url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="transition-opacity hover:opacity-80">
+    <a href={url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="touch-hit transition-opacity hover:opacity-80">
       {inner}
     </a>
   );
@@ -273,6 +274,7 @@ export function AddToTrackerButton({ vacancyId, size = "sm", variant = "secondar
     mutationFn: () => api.addToTracker(vacancyId),
     onSuccess: () => {
       setAdded(true);
+      track("tracker_add");
       qc.invalidateQueries({ queryKey: ["tracker"] });
       toast.success("Добавлено в трекер", {
         description: "Колонка «Сохранено»",

@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, FileText, FileUp, Sparkles, Type, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import type { Profile, ResumeResult } from "@/lib/types";
 import { cn, GRADE_LABEL } from "@/lib/utils";
 import { Badge, Button, Card, CardHeader, Textarea } from "@/components/ui/primitives";
@@ -24,6 +25,7 @@ export function ResumeCard({ onProfile }: { onProfile: (p: Profile) => void }) {
     mutationFn: (arg: { file?: File; text?: string }) => (arg.file ? api.uploadResumeFile(arg.file) : api.uploadResumeText(arg.text ?? "")),
     onSuccess: (r) => {
       setResult(r);
+      track("resume_uploaded");
       onProfile(r.profile);
       toast.success(`Извлечено навыков: ${r.extracted_skills.length}`, { description: "Профиль обновлён — match score пересчитан" });
     },

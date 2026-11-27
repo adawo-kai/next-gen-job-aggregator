@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { AuthForm } from "@/components/auth/auth-form";
 
-export const metadata = { title: "Регистрация — JobRadar" };
+export const metadata = { title: "Регистрация" };
 
 export default function RegisterPage() {
   return (

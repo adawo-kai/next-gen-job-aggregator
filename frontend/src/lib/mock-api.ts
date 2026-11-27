@@ -256,13 +256,34 @@ export async function mockRequest(method: string, rawPath: string, body: unknown
     return delay({ access_token: `mock.${btoa(email)}.${Date.now()}`, refresh_token: `mockr.${Date.now()}`, token_type: "bearer", expires_in: 900 });
   }
   if (path === "/auth/refresh") return delay({ access_token: `mock.${Date.now()}`, refresh_token: `mockr.${Date.now()}`, token_type: "bearer", expires_in: 900 });
-  if (path === "/auth/me") {
+  if (path === "/auth/me" && m !== "DELETE") {
     needAuth();
     let email = "demo@jobradar.dev";
     try {
       email = localStorage.getItem("nja.mock.email") ?? email;
     } catch {}
     return delay({ id: 1, email, telegram_linked: s.telegram_linked, created_at: new Date(Date.now() - 12 * 86400_000).toISOString() }, 80);
+  }
+  // account lifecycle (demo mode only)
+  if (path === "/auth/password/forgot") return delay({ ok: true });
+  if (path === "/auth/password/reset" || path === "/auth/password/change") {
+    if (path.endsWith("change")) needAuth();
+    if (String(b.password ?? b.new_password ?? "").length < 8) throw new MockHttpError(422, "Пароль должен быть не короче 8 символов");
+    return delay({ access_token: `mock.${Date.now()}`, refresh_token: `mockr.${Date.now()}`, token_type: "bearer", expires_in: 900 });
+  }
+  if (path === "/auth/logout" || path === "/auth/logout-all") return delay(undefined);
+  if (path === "/auth/me/export") {
+    needAuth();
+    return delay({ exported_at: new Date().toISOString(), profile: s.profile, tracker: s.tracker, subscriptions: s.subscriptions });
+  }
+  if (path === "/auth/me" && m === "DELETE") {
+    needAuth();
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("nja.mock"))
+        .forEach((k) => localStorage.removeItem(k));
+    } catch {}
+    return delay(undefined);
   }
   if (path === "/auth/telegram/link") {
     needAuth();
@@ -291,7 +312,7 @@ export async function mockRequest(method: string, rawPath: string, body: unknown
       ],
       top_tags: [...tagCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24).map(([tag, count]) => ({ tag, count })),
       cities: [...cityCount.entries()].sort((a, b) => b[1] - a[1]).map(([city, count]) => ({ city, count })),
-      currencies: ["RUB", "USD", "EUR", "KZT"],
+      currencies: ["RUB", "USD", "EUR", "KZT", "KGS"],
     };
     return delay(res, 120);
   }

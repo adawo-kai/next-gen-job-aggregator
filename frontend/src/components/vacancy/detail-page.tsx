@@ -21,14 +21,17 @@ import {
   Lock,
   MapPin,
   Monitor,
+  RefreshCw,
   Sparkles,
   Target,
   TrendingUp,
+  WifiOff,
   Wrench,
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+import { sanitizeHtml, textToHtml } from "@/lib/sanitize";
 import { useAuth } from "@/lib/auth";
 import type { MatchExplanation, VacancyDetail } from "@/lib/types";
 import { cn, formatDate, formatMoney, FORMAT_LABEL, scoreTone, sourceMeta, timeAgo } from "@/lib/utils";
@@ -408,46 +411,59 @@ function RedFlagsCard({ v }: { v: VacancyDetail }) {
 
 /* ---------------- Description ---------------- */
 
+/* Always in the DOM (server-rendered, so search engines index the full text); long texts are clamped. */
 function Description({ v }: { v: VacancyDetail }) {
   const [open, setOpen] = useState(false);
+  const html = sanitizeHtml(v.description_html || textToHtml(v.description_text || ""));
+  const long = (v.description_text?.length ?? html.length) > 900;
+  if (!html.trim()) return null;
   return (
     <Card>
-      <button onClick={() => setOpen(!open)} className="flex w-full cursor-pointer items-center justify-between gap-3 p-5 text-left">
-        <div className="flex items-center gap-3">
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-muted text-muted-foreground ring-1 ring-inset ring-border">
-            <FileText className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-[15px] font-semibold">Оригинальное описание</div>
-            <div className="text-[13px] text-muted-foreground">Как опубликовал работодатель</div>
-          </div>
+      <div className="flex items-center gap-3 p-5 pb-0">
+        <div className="grid h-8 w-8 place-items-center rounded-lg bg-muted text-muted-foreground ring-1 ring-inset ring-border">
+          <FileText className="h-4 w-4" />
         </div>
-        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className="prose-desc border-t px-5 py-4 text-[13.5px] text-foreground/85" dangerouslySetInnerHTML={{ __html: sanitize(v.description_html || v.description_text.replace(/\n/g, "<br/>")) }} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <div>
+          <h2 className="text-[15px] font-semibold">Описание вакансии</h2>
+          <div className="text-[13px] text-muted-foreground">Как опубликовал работодатель</div>
+        </div>
+      </div>
+      <div className="relative">
+        <div
+          className={cn("prose-desc overflow-hidden break-words px-5 py-4 text-[14px] text-foreground/85 sm:text-[13.5px]", long && !open && "max-h-[320px]")}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+        {long && !open && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 rounded-b-2xl bg-gradient-to-t from-card to-transparent" />}
+      </div>
+      {long && (
+        <button onClick={() => setOpen(!open)} className="flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 border-t text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+          {open ? "Свернуть" : "Показать полностью"}
+          <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+        </button>
+      )}
     </Card>
   );
 }
 
-function sanitize(html: string) {
-  return html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/ on\w+="[^"]*"/gi, "").replace(/javascript:/gi, "");
-}
-
 /* ---------------- Page ---------------- */
 
-export function VacancyDetailPage({ id }: { id: string }) {
+/** `initial` is the anonymous server-side copy: it paints instantly (and is what crawlers see);
+    signed-in users then refetch their personalised copy (match score) in the background. */
+export function VacancyDetailPage({ id, initial }: { id: string; initial?: VacancyDetail }) {
   const { isAuthed } = useAuth();
-  const q = useQuery({ queryKey: ["vacancy", id, isAuthed], queryFn: () => api.vacancy(id) });
+  const q = useQuery({
+    queryKey: ["vacancy", id, isAuthed],
+    queryFn: () => api.vacancy(id),
+    initialData: !isAuthed ? initial : undefined,
+    placeholderData: initial,
+    staleTime: !isAuthed && initial ? 60_000 : undefined,
+  });
   const match = useQuery({ queryKey: ["match", id], queryFn: () => api.match(id), enabled: isAuthed, retry: false });
   const similar = useQuery({ queryKey: ["similar", id], queryFn: () => api.similar(id) });
 
-  if (q.isLoading)
+  // a failed personalised refetch keeps showing the server copy
+  const v = q.data ?? initial;
+  if (!v && q.isLoading)
     return (
       <div className="space-y-4">
         <Skeleton className="h-5 w-32" />
@@ -467,26 +483,39 @@ export function VacancyDetailPage({ id }: { id: string }) {
         </div>
       </div>
     );
-  if (q.isError || !q.data)
-    return (
+  if (!v) {
+    const err = q.error;
+    const missing = err instanceof ApiError && (err.status === 404 || err.status === 422);
+    return missing || !err ? (
       <EmptyState
         icon={<CircleDot className="h-5 w-5" />}
         title="Вакансия не найдена"
-        description={(q.error as Error)?.message ?? "Возможно, она была снята с публикации."}
+        description="Возможно, её сняли с публикации или ссылка устарела."
         action={
           <Link href="/">
             <Button variant="secondary">К поиску</Button>
           </Link>
         }
       />
+    ) : (
+      <EmptyState
+        icon={<WifiOff className="h-5 w-5" />}
+        title="Не удалось загрузить вакансию"
+        description={err instanceof ApiError && err.status ? err.detail : "Сервер временно недоступен. Проверьте соединение и попробуйте ещё раз."}
+        action={
+          <Button onClick={() => q.refetch()} loading={q.isFetching}>
+            <RefreshCw className="h-4 w-4" /> Повторить
+          </Button>
+        }
+      />
     );
-  const v = q.data;
+  }
   const primary = v.sources[0];
   const score = match.data?.score ?? v.match_score;
 
   return (
     <div className="space-y-4">
-      <Link href="/" className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
+      <Link href="/" className="inline-flex min-h-10 items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Все вакансии
       </Link>
 
@@ -527,11 +556,11 @@ export function VacancyDetailPage({ id }: { id: string }) {
             </div>
             <div className="flex shrink-0 flex-row items-center gap-3 sm:flex-col sm:items-end">
               {score != null && <MatchRing score={score} size={72} stroke={5.5} />}
-              <div className="flex gap-2">
-                <AddToTrackerButton vacancyId={v.id} size="md" variant="primary" />
+              <div className="flex min-w-0 flex-1 flex-wrap gap-2 sm:flex-none">
+                <AddToTrackerButton vacancyId={v.id} size="md" variant="primary" className="h-11 flex-1 sm:h-9 sm:flex-none" />
                 {primary && (
-                  <a href={primary.url} target="_blank" rel="noreferrer">
-                    <Button variant="secondary">
+                  <a href={primary.url} target="_blank" rel="noopener noreferrer nofollow" className="flex-1 sm:flex-none">
+                    <Button variant="secondary" className="h-11 w-full sm:h-9">
                       <ExternalLink className="h-4 w-4" /> Оригинал
                     </Button>
                   </a>

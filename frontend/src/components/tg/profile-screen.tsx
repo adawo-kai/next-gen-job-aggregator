@@ -1,20 +1,22 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileUp, Plus, Sparkles, X } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, FileText, FileUp, Plus, ShieldCheck, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, tokens } from "@/lib/api";
+import { SITE_URL } from "@/lib/site";
 import type { Currency, Format, Grade, Profile, Subscription } from "@/lib/types";
 import { cn, currencySign, FORMAT_LABEL, GRADE_LABEL, plural } from "@/lib/utils";
 import { K, useMe, useMeta, useProfile } from "./data";
 import { MainButton } from "./main-button";
-import { haptic, requestWriteAccess, useTelegram } from "./telegram";
-import { Avatar, Button, Chip, Collapse, Section, Segmented, Separator, Skeleton, Switch } from "./ui";
+import { confirmDialog, haptic, openLink, requestWriteAccess, useTelegram } from "./telegram";
+import { markAccountDeleted } from "./shell";
+import { Avatar, Button, Chip, Collapse, Section, Segmented, Separator, Sheet, Skeleton, Spinner, Switch } from "./ui";
 
 const GRADES: Grade[] = ["intern", "junior", "middle", "senior", "lead"];
 const FORMATS: Format[] = ["remote", "hybrid", "office"];
-const CURRENCIES: Currency[] = ["RUB", "USD", "EUR", "KZT"];
+const CURRENCIES: Currency[] = ["RUB", "USD", "EUR", "KZT", "KGS"];
 const SUB_NAME = "Подходящие вакансии";
 const MAX_FILE = 5 * 1024 * 1024;
 
@@ -321,6 +323,99 @@ function NotificationsSection({ linked }: { linked: boolean }) {
   );
 }
 
+/* ---------------- data & legal ---------------- */
+
+function DataSection() {
+  const qc = useQueryClient();
+  const [json, setJson] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const exportData = useMutation({
+    mutationFn: api.exportMe,
+    onSuccess: (d) => {
+      haptic.impact("light");
+      setCopied(false);
+      setJson(JSON.stringify(d, null, 2));
+    },
+    onError: (e) => {
+      haptic.notify("error");
+      toast.error("Не удалось выгрузить данные", { description: (e as Error).message });
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: api.deleteMe,
+    onSuccess: () => {
+      haptic.notify("success");
+      // order matters: the shell must know about the deletion before the session disappears
+      markAccountDeleted();
+      tokens.clear();
+      qc.clear();
+    },
+    onError: (e) => {
+      haptic.notify("error");
+      toast.error("Не удалось удалить аккаунт", { description: (e as Error).message });
+    },
+  });
+
+  const askDelete = async () => {
+    haptic.impact("medium");
+    const ok = await confirmDialog("Удалить аккаунт JobRadar? Профиль, резюме, трекер и подписки будут стёрты сразу и навсегда.");
+    if (ok) remove.mutate();
+  };
+
+  const copy = async () => {
+    if (!json) return;
+    try {
+      await navigator.clipboard.writeText(json);
+      setCopied(true);
+      haptic.notify("success");
+    } catch {
+      toast("Выделите текст и скопируйте вручную");
+    }
+  };
+
+  const row = "tg-press flex min-h-[48px] w-full items-center gap-3 px-4 py-2 text-left text-[16px] disabled:opacity-60";
+  return (
+    <>
+      <Section title="Данные" footer="Удаление выполняется сразу и необратимо.">
+        <button className={row} disabled={exportData.isPending} onClick={() => exportData.mutate()}>
+          <Download className="h-5 w-5 text-[var(--tg-link)]" />
+          <span className="flex-1">Скачать мои данные</span>
+          {exportData.isPending && <Spinner />}
+        </button>
+        <Separator inset={48} />
+        <button className={row} onClick={() => openLink(`${SITE_URL}/privacy`)}>
+          <ShieldCheck className="h-5 w-5 text-[var(--tg-link)]" />
+          <span className="flex-1">Политика конфиденциальности</span>
+          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+        </button>
+        <Separator inset={48} />
+        <button className={row} onClick={() => openLink(`${SITE_URL}/terms`)}>
+          <FileText className="h-5 w-5 text-[var(--tg-link)]" />
+          <span className="flex-1">Пользовательское соглашение</span>
+          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+        </button>
+        <Separator inset={48} />
+        <button className={cn(row, "text-[var(--tg-destructive)]")} disabled={remove.isPending} onClick={askDelete}>
+          <Trash2 className="h-5 w-5" />
+          <span className="flex-1">Удалить аккаунт и данные</span>
+          {remove.isPending && <Spinner />}
+        </button>
+      </Section>
+
+      <Sheet open={json != null} onClose={() => setJson(null)} title="Мои данные">
+        <p className="mb-2 text-[14px] leading-snug text-muted-foreground">Всё, что JobRadar хранит о вас, в формате JSON.</p>
+        <pre className="max-h-[50dvh] overflow-auto whitespace-pre-wrap break-all rounded-xl bg-card p-3 font-mono text-[12px] leading-relaxed select-text">{json}</pre>
+        <Button size="lg" className="mt-3 w-full" onClick={copy}>
+          {copied ? <Check className="h-[18px] w-[18px]" /> : <Copy className="h-[18px] w-[18px]" />}
+          {copied ? "Скопировано" : "Скопировать"}
+        </Button>
+      </Sheet>
+    </>
+  );
+}
+
 /* ---------------- screen ---------------- */
 
 export function ProfileScreen() {
@@ -441,7 +536,7 @@ export function ProfileScreen() {
             </div>
             <Separator />
             <div className="p-3">
-              <Segmented value={draft.currency} onChange={(currency) => setDraft((d) => ({ ...d, currency }))} options={CURRENCIES.map((c) => ({ value: c, label: `${c} ${currencySign(c)}` }))} />
+              <Segmented value={draft.currency} onChange={(currency) => setDraft((d) => ({ ...d, currency }))} options={CURRENCIES.map((c) => ({ value: c, label: currencySign(c).length > 1 ? c : `${c} ${currencySign(c)}` }))} />
             </div>
           </Section>
 
@@ -466,6 +561,8 @@ export function ProfileScreen() {
           </Section>
 
           <NotificationsSection linked={me.data?.telegram_linked ?? true} />
+
+          <DataSection />
 
           {dirty && <div className="h-20" />}
         </>

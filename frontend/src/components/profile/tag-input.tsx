@@ -77,7 +77,7 @@ export function TagInput({
                   e.stopPropagation();
                   onChange(value.filter((v) => v !== t));
                 }}
-                className="grid h-4 w-4 cursor-pointer place-items-center rounded opacity-60 transition hover:bg-foreground/10 hover:opacity-100"
+                className="touch-hit grid h-4 w-4 cursor-pointer place-items-center rounded opacity-60 transition hover:bg-foreground/10 hover:opacity-100"
                 aria-label={`Удалить ${t}`}
               >
                 <X className="h-3 w-3" />

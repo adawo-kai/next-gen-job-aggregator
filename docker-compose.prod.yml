@@ -22,40 +22,56 @@ x-prod-env: &prod-env
   SMTP_URL: ${SMTP_URL:-}
   MAIL_FROM: ${MAIL_FROM:-}
 
+x-logging: &logging
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }  # bounded logs (see privacy policy)
+
 services:
   postgres:
+    <<: *logging
     ports: !reset []
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     restart: unless-stopped
 
   redis:
+    <<: *logging
     ports: !reset []
     command: ["redis-server", "--appendonly", "yes"]
     volumes: [redisdata:/data]
     restart: unless-stopped
 
   bootstrap:
+    <<: *logging
     environment: *prod-env
   api:
+    <<: *logging
     ports: !reset []
     environment: *prod-env
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*", "--workers", "2"]
   worker-collect:
+    <<: *logging
     environment: *prod-env
   worker-pipeline:
+    <<: *logging
     environment: *prod-env
   beat:
+    <<: *logging
     environment: *prod-env
   bot:
+    <<: *logging
     environment: *prod-env
   flower:
+    <<: *logging
     ports: !override ["127.0.0.1:5555:5555"]  # reachable only via SSH tunnel
     environment: *prod-env
   prometheus:
+    <<: *logging
     ports: !reset []
     restart: unless-stopped
   grafana:
+    <<: *logging
     ports: !override ["127.0.0.1:3001:3000"]  # reachable only via SSH tunnel
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
@@ -63,6 +79,7 @@ services:
     restart: unless-stopped
 
   web:
+    <<: *logging
     ports: !reset []
     build:
       args:
@@ -72,6 +89,7 @@ services:
         NEXT_PUBLIC_SENTRY_DSN: ${SENTRY_DSN_WEB:-}
 
   caddy:
+    <<: *logging
     image: caddy:2.8-alpine
     ports: ["80:80", "443:443"]
     environment:
@@ -84,6 +102,7 @@ services:
     restart: unless-stopped
 
   backup:
+    <<: *logging
     image: pgvector/pgvector:pg16
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}

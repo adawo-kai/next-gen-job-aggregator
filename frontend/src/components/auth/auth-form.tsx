@@ -12,7 +12,7 @@ import { Logo } from "@/components/nav";
 import { Button, Card, Input, Label } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
-function PasswordInput({ id, value, onChange, placeholder, autoComplete }: { id: string; value: string; onChange: (v: string) => void; placeholder?: string; autoComplete?: string }) {
+export function PasswordInput({ id, value, onChange, placeholder, autoComplete }: { id: string; value: string; onChange: (v: string) => void; placeholder?: string; autoComplete?: string }) {
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
@@ -30,7 +30,7 @@ function PasswordInput({ id, value, onChange, placeholder, autoComplete }: { id:
       <button
         type="button"
         onClick={() => setShow((s) => !s)}
-        className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        className="absolute right-0.5 top-1/2 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
         aria-label={show ? "Скрыть пароль" : "Показать пароль"}
       >
         {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -99,7 +99,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="password">Пароль</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Пароль</Label>
+                {!isRegister && (
+                  <Link href="/forgot-password" className="-my-2 inline-flex min-h-10 items-center text-[12.5px] text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline">
+                    Забыли пароль?
+                  </Link>
+                )}
+              </div>
               <PasswordInput id="password" value={password} onChange={setPassword} placeholder={isRegister ? "Минимум 6 символов" : "••••••••"} autoComplete={isRegister ? "new-password" : "current-password"} />
               {isRegister && (
                 <div className="flex gap-1 pt-1">
@@ -143,6 +150,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               {isRegister ? "Зарегистрироваться" : "Войти"}
               {!loading && <ArrowRight className="h-4 w-4" />}
             </Button>
+            {isRegister && (
+              <p className="text-center text-[12px] leading-relaxed text-muted-foreground">
+                Регистрируясь, вы принимаете{" "}
+                <Link href="/terms" target="_blank" className="text-foreground underline underline-offset-2">
+                  Соглашение
+                </Link>{" "}
+                и{" "}
+                <Link href="/privacy" target="_blank" className="text-foreground underline underline-offset-2">
+                  Политику
+                </Link>
+                .
+              </p>
+            )}
           </form>
         </Card>
         <p className="mt-5 text-center text-[13px] text-muted-foreground">

@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import type {
   MarketAnalytics,
   MatchExplanation,
@@ -24,10 +25,13 @@ import type {
 // Absolute ("http://host:8000/api/v1") or relative ("/api/v1", served by the Next.js same-origin proxy).
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1").replace(/\/+$/, "");
 const FORCE_MOCK = process.env.NEXT_PUBLIC_MOCK === "1";
+// Production builds set NEXT_PUBLIC_DEMO_FALLBACK=0: real users must never see fake vacancies,
+// an unreachable backend shows a proper error state instead.
+const DEMO_FALLBACK = process.env.NEXT_PUBLIC_DEMO_FALLBACK !== "0";
 
-/* The demo/mock fallback exists for the portfolio website only. Real users of the Telegram Mini App must
-   never see fake data, so it is switched off for /tg routes (and explicitly by the Mini App shell). */
-let mockDisabled = false;
+/* The demo/mock fallback exists for local development only. Real users must never see fake data, so it is
+   switched off in production builds, for /tg routes and explicitly by the Mini App shell. */
+let mockDisabled = !DEMO_FALLBACK;
 export function disableMockFallback() {
   mockDisabled = true;
 }
@@ -131,23 +135,25 @@ async function viaMock<T>(path: string, o: Opts, failed?: Response): Promise<T> 
   }
 }
 
-let refreshing: Promise<boolean> | null = null;
-async function refreshTokens(): Promise<boolean> {
+/** "invalid" = the session is dead (sign out); "unavailable" = offline / rate limited / server error (keep it). */
+type RefreshResult = "ok" | "invalid" | "unavailable";
+let refreshing: Promise<RefreshResult> | null = null;
+async function refreshTokens(): Promise<RefreshResult> {
   const rt = tokens.refresh;
-  if (!rt) return false;
+  if (!rt) return "invalid";
   if (!refreshing) {
-    refreshing = (async () => {
+    refreshing = (async (): Promise<RefreshResult> => {
       try {
         const res = await fetch(`${API_URL}/auth/refresh`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh_token: rt }),
         });
-        if (!res.ok) return false;
+        if (!res.ok) return res.status === 429 || res.status >= 500 ? "unavailable" : "invalid";
         tokens.set((await res.json()) as Tokens);
-        return true;
+        return "ok";
       } catch {
-        return false;
+        return "unavailable";
       } finally {
         setTimeout(() => (refreshing = null), 0);
       }
@@ -188,7 +194,18 @@ async function parseError(res: Response): Promise<ApiError> {
 const isMockToken = (t: string | null) => !!t && t.startsWith("mock");
 
 // endpoints that issue tokens themselves: a 401 there must not trigger a refresh round-trip
-const NO_REFRESH = /^\/auth\/(login|register|refresh|telegram\/)/;
+const NO_REFRESH = /^\/auth\/(login|register|refresh|telegram\/|password\/(forgot|reset)|logout$)/;
+
+/** Rate limiting (429 + Retry-After) can come from any endpoint: one deduplicated, friendly toast. */
+function notifyRateLimited(res: Response) {
+  if (typeof window === "undefined") return;
+  const after = Number(res.headers.get("Retry-After"));
+  const wait = Number.isFinite(after) && after > 0 ? Math.ceil(after) : null;
+  toast.error("Слишком много запросов", {
+    id: "rate-limit",
+    description: wait ? `Подождите ${wait} сек. и попробуйте снова` : "Подождите немного и попробуйте снова",
+  });
+}
 
 export async function request<T>(path: string, o: Opts = {}): Promise<T> {
   if (shouldSkipNetwork() || (isMockToken(tokens.access) && mockAllowed())) return viaMock<T>(path, o);
@@ -201,14 +218,14 @@ export async function request<T>(path: string, o: Opts = {}): Promise<T> {
     return viaMock<T>(path, o);
   }
   if (res.status === 401 && tokens.refresh && !NO_REFRESH.test(path)) {
-    const ok = await refreshTokens();
-    if (ok) {
+    const r = await refreshTokens();
+    if (r === "ok") {
       try {
         res = await rawFetch(path, o);
       } catch {
         return viaMock<T>(path, o);
       }
-    } else {
+    } else if (r === "invalid") {
       tokens.clear();
     }
   }
@@ -221,6 +238,7 @@ export async function request<T>(path: string, o: Opts = {}): Promise<T> {
       if ((j?.detail === "Not Found" || j?.detail === "Method Not Allowed") && mockAllowed()) return viaMock<T>(path, o);
     } catch {}
   }
+  if (res.status === 429) notifyRateLimited(res);
   if (!res.ok) throw await parseError(res);
   setMock(false);
   if (res.status === 204) return undefined as T;
@@ -262,6 +280,21 @@ export const api = {
   telegramWebApp: (initData: string) =>
     request<Tokens>("/auth/telegram/webapp", { method: "POST", body: { init_data: initData }, timeoutMs: 12_000 }),
   telegramLink: () => request<{ deep_link: string; expires_at: string }>("/auth/telegram/link", { method: "POST", body: {} }),
+
+  /* account & security */
+  /** Always 202 {ok: true}: the backend never reveals whether the email exists. */
+  forgotPassword: (email: string) => request<{ ok: boolean }>("/auth/password/forgot", { method: "POST", body: { email } }),
+  /** Sets a new password by the emailed token and signs in. 400 {detail} when the token is invalid/expired. */
+  resetPassword: (token: string, password: string) => request<Tokens>("/auth/password/reset", { method: "POST", body: { token, password } }),
+  /** Revokes every other session; the returned tokens replace the current ones. */
+  changePassword: (current_password: string, new_password: string) =>
+    request<Tokens>("/auth/password/change", { method: "POST", body: { current_password, new_password } }),
+  /** Revokes the given session (refresh token family) on the server. */
+  logout: (refresh_token: string) => request<void>("/auth/logout", { method: "POST", body: { refresh_token }, timeoutMs: 4000 }),
+  /** Revokes every session of the user, including this one. */
+  logoutAll: () => request<void>("/auth/logout-all", { method: "POST", body: {} }),
+  exportMe: () => request<unknown>("/auth/me/export", { timeoutMs: 20_000 }),
+  deleteMe: () => request<void>("/auth/me", { method: "DELETE", body: { confirm: "УДАЛИТЬ" } }),
 
   profile: () => request<Profile>("/profile"),
   saveProfile: (p: Profile) => request<Profile>("/profile", { method: "PUT", body: p }),

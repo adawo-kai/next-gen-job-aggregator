@@ -71,7 +71,7 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 
 export function CardHeader({ className, title, description, icon, action }: { className?: string; title: React.ReactNode; description?: React.ReactNode; icon?: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className={cn("flex items-start justify-between gap-4 px-5 pt-5", className)}>
+    <div className={cn("flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 pt-5", className)}>
       <div className="flex min-w-0 items-start gap-3">
         {icon && (
           <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground ring-1 ring-inset ring-border">
@@ -122,7 +122,7 @@ export function Chip({ active, className, children, ...props }: React.ButtonHTML
       type="button"
       aria-pressed={active}
       className={cn(
-        "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium ring-1 ring-inset transition-all duration-150",
+        "touch-hit inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium ring-1 ring-inset transition-all duration-150",
         active
           ? "bg-primary/12 text-foreground ring-primary/45 shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_10%,transparent)]"
           : "bg-transparent text-muted-foreground ring-border hover:text-foreground hover:ring-border-strong",

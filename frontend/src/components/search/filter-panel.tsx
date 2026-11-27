@@ -10,7 +10,16 @@ import { Chip, Input, Label, Select, Skeleton, Switch } from "@/components/ui/pr
 
 const GRADES: Grade[] = ["intern", "junior", "middle", "senior", "lead"];
 const FORMATS: Format[] = ["remote", "hybrid", "office"];
-const CURRENCIES: Currency[] = ["RUB", "USD", "EUR", "KZT"];
+const CURRENCIES: Currency[] = ["RUB", "USD", "EUR", "KZT", "KGS"];
+/** quick "salary from" presets, per currency (monthly) */
+const SALARY_PRESETS: Record<Currency, number[]> = {
+  RUB: [150000, 250000, 350000, 500000],
+  USD: [2000, 4000, 6000],
+  EUR: [2000, 4000, 6000],
+  KZT: [500000, 1000000, 1500000],
+  KGS: [50000, 100000, 150000, 250000],
+};
+const presetLabel = (v: number) => (v >= 1_000_000 ? `${v / 1_000_000}M` : `${v / 1000}k`);
 
 function toggle<T>(arr: T[] | undefined, v: T): T[] {
   const a = arr ?? [];
@@ -89,17 +98,11 @@ export function FilterPanel({ filters, onChange }: { filters: VacancyFilters; on
           </Select>
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {(filters.currency ?? "RUB") === "RUB"
-            ? [150000, 250000, 350000, 500000].map((v) => (
-                <Chip key={v} active={filters.salary_min === v} onClick={() => set({ salary_min: filters.salary_min === v ? undefined : v })}>
-                  {v / 1000}k
-                </Chip>
-              ))
-            : [2000, 4000, 6000].map((v) => (
-                <Chip key={v} active={filters.salary_min === v} onClick={() => set({ salary_min: filters.salary_min === v ? undefined : v })}>
-                  {v / 1000}k
-                </Chip>
-              ))}
+          {(SALARY_PRESETS[filters.currency ?? "RUB"] ?? SALARY_PRESETS.RUB).map((v) => (
+            <Chip key={v} active={filters.salary_min === v} onClick={() => set({ salary_min: filters.salary_min === v ? undefined : v })}>
+              {presetLabel(v)}
+            </Chip>
+          ))}
         </div>
       </Section>
 
@@ -152,7 +155,7 @@ export function FilterPanel({ filters, onChange }: { filters: VacancyFilters; on
 
       <Section title="Источник">
         <div className="space-y-1">
-          {(meta.data?.sources ?? [{ key: "hh", title: "hh.ru", count: 0 }, { key: "habr", title: "Habr Карьера", count: 0 }, { key: "telegram", title: "Telegram", count: 0 }]).map((s) => {
+          {(meta.data?.sources ?? [{ key: "hh", title: "hh.ru", count: 0 }, { key: "habr", title: "Habr Карьера", count: 0 }, { key: "telegram", title: "Telegram", count: 0 }, { key: "devkg", title: "DevKG", count: 0 }]).map((s) => {
             const active = filters.source?.includes(s.key);
             const m = sourceMeta(s.key);
             return (

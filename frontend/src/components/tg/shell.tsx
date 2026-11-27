@@ -17,6 +17,25 @@ disableMockFallback();
 
 type Phase = "boot" | "ready" | "outside" | "expired" | "error";
 
+/* After "delete account" the shell must not silently sign in again with initData (that would create a fresh
+   account): it shows a goodbye screen until the Mini App is closed. */
+let accountDeleted = false;
+const deletedListeners = new Set<() => void>();
+export function markAccountDeleted() {
+  accountDeleted = true;
+  deletedListeners.forEach((l) => l());
+}
+function useAccountDeleted() {
+  return useSyncExternalStore(
+    (l) => {
+      deletedListeners.add(l);
+      return () => deletedListeners.delete(l);
+    },
+    () => accountDeleted,
+    () => false,
+  );
+}
+
 const TABS = [
   { href: "/tg", label: "Лента", icon: Newspaper },
   { href: "/tg/tracker", label: "Трекер", icon: KanbanSquare },
@@ -54,6 +73,7 @@ export function TgShell({ children }: { children: React.ReactNode }) {
   const [pending, setPending] = useState<string | null>(null);
   const running = useRef<Promise<void> | null>(null);
   const access = useAccess();
+  const deleted = useAccountDeleted();
   const { colorScheme } = useTelegram();
 
   const authenticate = useCallback(() => {
@@ -112,17 +132,17 @@ export function TgShell({ children }: { children: React.ReactNode }) {
 
   // refresh token died mid-session -> re-authenticate with initData (or show the expired screen)
   useEffect(() => {
-    if (phase === "ready" && !access) {
+    if (phase === "ready" && !access && !deleted) {
       setPhase("boot");
       void authenticate();
     }
-  }, [phase, access, authenticate]);
+  }, [phase, access, authenticate, deleted]);
 
   useEffect(() => {
     if (pending && pathname === pending) setPending(null);
   }, [pathname, pending]);
 
-  const showTabs = phase === "ready" && TABS.some((t) => t.href === pathname);
+  const showTabs = !deleted && phase === "ready" && TABS.some((t) => t.href === pathname);
   const canRender = phase === "ready" && (!pending || pathname === pending);
 
   return (
@@ -134,7 +154,7 @@ export function TgShell({ children }: { children: React.ReactNode }) {
           paddingBottom: showTabs ? "calc(var(--tg-tabbar-h) + var(--tg-safe-bottom) + 20px)" : "calc(var(--tg-safe-bottom) + 24px)",
         }}
       >
-        {canRender ? children : phase === "boot" || phase === "ready" ? <BootSkeleton /> : <GateScreen phase={phase} message={errMsg} onRetry={() => { setPhase("boot"); void authenticate(); }} />}
+        {deleted ? <GoodbyeScreen /> : canRender ? children : phase === "boot" || phase === "ready" ? <BootSkeleton /> : <GateScreen phase={phase} message={errMsg} onRetry={() => { setPhase("boot"); void authenticate(); }} />}
       </div>
       {showTabs && <TabBar pathname={pathname} />}
       <Toaster
@@ -264,6 +284,29 @@ function GateScreen({ phase, message, onRetry }: { phase: Exclude<Phase, "boot" 
           </Button>
         </>
       )}
+    </div>
+  );
+}
+
+function GoodbyeScreen() {
+  return (
+    <div className="flex min-h-[calc(var(--tg-viewport-stable-height,100dvh)-80px)] flex-col items-center justify-center px-6 text-center">
+      <LogoMark />
+      <h1 className="mt-6 text-[22px] font-bold tracking-tight">Аккаунт удалён</h1>
+      <p className="mt-2 max-w-[320px] text-[15px] leading-snug text-muted-foreground">
+        Профиль, резюме, трекер и подписки стёрты. Если захотите вернуться — просто откройте приложение снова.
+      </p>
+      <Button
+        size="lg"
+        className="mt-7 w-full max-w-[320px]"
+        onClick={() => {
+          const wa = getWebApp();
+          if (wa && wa.platform !== "unknown") wa.close();
+          else window.location.href = "/";
+        }}
+      >
+        Закрыть
+      </Button>
     </div>
   );
 }

@@ -89,7 +89,7 @@ function UserMenu() {
         </Link>
       </div>
     );
-  const email = user?.email ?? "…";
+  const email = user ? user.email ?? user.display_name ?? (user.telegram_username ? "@" + user.telegram_username : "Telegram") : "…";
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -116,8 +116,8 @@ function UserMenu() {
           <DropdownMenu.Separator className="my-1 h-px bg-border" />
           <DropdownMenu.Item
             onSelect={() => {
-              logout();
               router.push("/");
+              void logout();
             }}
             className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-rose-500 outline-none data-[highlighted]:bg-rose-500/10"
           >

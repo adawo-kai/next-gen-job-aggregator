@@ -108,7 +108,7 @@ export function VacancyCard({ v, index = 0, compact = false }: { v: TVacancy; in
                   <SourceStack sources={v.sources} />
                   {!compact && <WaterMeter score={v.water_score} />}
                 </div>
-                <AddToTrackerButton vacancyId={v.id} size={compact ? "icon-sm" : "sm"} variant="ghost" />
+                <AddToTrackerButton vacancyId={v.id} size={compact ? "icon-sm" : "sm"} variant="ghost" className="touch-hit" />
               </div>
             </div>
           </div>

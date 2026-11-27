@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Grade } from "@/lib/types";
 import { GRADE_LABEL } from "@/lib/utils";
-import { Card, CardHeader, EmptyState, Select, Skeleton } from "@/components/ui/primitives";
+import { Button, Card, CardHeader, EmptyState, Select, Skeleton } from "@/components/ui/primitives";
 import { KpiSkeleton, KpiTile } from "@/components/analytics/kpi";
 import { FormatDonut, TopSkillsChart, TrendChart } from "@/components/analytics/charts";
 import { BySource, SalaryByGrade, SkillGapList, SkillGapTeaser, TrendDelta } from "@/components/analytics/blocks";
@@ -80,6 +80,11 @@ export default function AnalyticsPage() {
           icon={<BarChart3 className="h-5 w-5" />}
           title="Не удалось загрузить аналитику"
           description={(market.error as Error)?.message}
+          action={
+            <Button onClick={() => market.refetch()} loading={market.isFetching}>
+              Повторить
+            </Button>
+          }
         />
       ) : (
         <>

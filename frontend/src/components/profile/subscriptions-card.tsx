@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Inbox, Plus, Target, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import type { Subscription, VacancyFilters } from "@/lib/types";
 import { cn, currencySign, FORMAT_LABEL, GRADE_LABEL, formatDate, plural, sourceMeta } from "@/lib/utils";
 import { Badge, Button, Card, CardHeader, Input, Label, Skeleton, Switch } from "@/components/ui/primitives";
@@ -72,6 +73,7 @@ function CreateForm({ onDone }: { onDone: () => void }) {
   const m = useMutation({
     mutationFn: () => api.createSubscription({ name: name.trim() || "Моя подписка", filters: filters ?? {}, mode, min_match: useMatch ? minMatch : null }),
     onSuccess: () => {
+      track("subscription_created");
       qc.invalidateQueries({ queryKey: ["subscriptions"] });
       toast.success("Подписка создана", { description: mode === "instant" ? "Новые вакансии придут в Telegram сразу" : "Дайджест — раз в день" });
       onDone();

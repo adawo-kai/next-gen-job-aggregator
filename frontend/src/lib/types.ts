@@ -1,6 +1,6 @@
 export type Grade = "intern" | "junior" | "middle" | "senior" | "lead";
 export type Format = "remote" | "hybrid" | "office";
-export type Currency = "RUB" | "USD" | "EUR" | "KZT";
+export type Currency = "RUB" | "USD" | "EUR" | "KZT" | "KGS";
 export type SourceKey = string;
 export type SortKey = "date" | "salary" | "match" | "relevance";
 

@@ -73,7 +73,7 @@ const SEEDS: Seed[] = [
   { title: "Senior Data Scientist (Recsys)", company: "Wildberries", trust: 58, from: null, to: null, grade: "senior", format: "remote", city: "Москва", must: ["Python", "ML", "SQL", "Recsys"], nice: ["Spark"], sources: ["hh", "habr"], water: 35, hoursAgo: 36, what: ["Улучшать рекомендации на главной", "Ставить онлайн A/B-эксперименты", "Внедрять нейросетевые ранжировщики"], conditions: ["Удалёнка", "Бонусы", "Большие данные"] },
 ];
 
-const RATES: Record<string, number> = { RUB: 1, USD: 92, EUR: 99, KZT: 0.19 };
+const RATES: Record<string, number> = { RUB: 1, USD: 92, EUR: 99, KZT: 0.19, KGS: 1.05 };
 const MARKET: Record<Grade, [number, number, number]> = {
   intern: [60000, 80000, 100000],
   junior: [95000, 130000, 165000],

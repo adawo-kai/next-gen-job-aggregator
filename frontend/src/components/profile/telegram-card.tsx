@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BellRing, CheckCircle2, ExternalLink, Send } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { Button, Card } from "@/components/ui/primitives";
 
@@ -14,6 +15,7 @@ export function TelegramCard() {
   const m = useMutation({
     mutationFn: api.telegramLink,
     onSuccess: (r) => {
+      track("tg_link");
       window.open(r.deep_link, "_blank", "noopener,noreferrer");
       toast.success("Откройте бота в Telegram", { description: "Нажмите «Start» — ссылка действует 10 минут" });
       setTimeout(() => qc.invalidateQueries({ queryKey: ["me"] }), 4000);

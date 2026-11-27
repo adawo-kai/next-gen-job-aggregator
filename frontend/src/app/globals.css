@@ -159,3 +159,26 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Long-form legal texts */
+.legal p { margin: 0.75rem 0; }
+.legal ul { margin: 0.75rem 0; padding-left: 1.25rem; list-style: disc; }
+.legal li { margin: 0.35rem 0; }
+.legal li::marker { color: var(--muted-foreground); }
+.legal a { color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
+.legal a:hover { text-decoration-color: currentColor; }
+.legal strong { color: var(--foreground); font-weight: 600; }
+
+/* Phones: no horizontal page scroll; form fields at >=16px so iOS Safari does not zoom on focus */
+html, body { overflow-x: clip; }
+@media (max-width: 767px), (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* Touch screens: grow the hit area of compact controls to ~40px without changing the layout */
+@media (pointer: coarse) {
+  .touch-hit { position: relative; }
+  .touch-hit::after { content: ""; position: absolute; inset: -8px -4px; }
+}

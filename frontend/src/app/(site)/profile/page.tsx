@@ -14,6 +14,7 @@ import { ResumeCard } from "@/components/profile/resume-card";
 import { PreferencesCard } from "@/components/profile/preferences-card";
 import { TelegramCard } from "@/components/profile/telegram-card";
 import { SubscriptionsCard } from "@/components/profile/subscriptions-card";
+import { AccountCard } from "@/components/profile/account-card";
 
 const fade = (i: number) => ({
   initial: { opacity: 0, y: 12 },
@@ -75,7 +76,7 @@ export default function ProfilePage() {
       <motion.div {...fade(0)} className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Профиль</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{user?.email ?? "…"} · резюме, предпочтения и уведомления</p>
+          <p className="mt-1 text-sm text-muted-foreground">{user ? user.email ?? user.display_name ?? (user.telegram_username ? "@" + user.telegram_username : "Telegram") : "…"} · резюме, предпочтения и уведомления</p>
         </div>
         {p && (
           <div className="flex flex-wrap gap-1.5">
@@ -101,6 +102,9 @@ export default function ProfilePage() {
           </motion.div>
           <motion.div {...fade(4)}>
             <SubscriptionsCard />
+          </motion.div>
+          <motion.div {...fade(5)}>
+            <AccountCard />
           </motion.div>
         </div>
       </div>
