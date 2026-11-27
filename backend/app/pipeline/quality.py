@@ -28,7 +28,33 @@ IT_TITLE = re.compile(
 SOFT = {"Machine Learning"}
 
 
+_CYR = re.compile(r"[а-яё]", re.I)
+_LAT = re.compile(r"[a-z]", re.I)
+_SCAM = re.compile(
+    r"без опыта.{0,40}(заполнени|ввод данных|сортировк|набор текст|перепечат)|"
+    r"(заработ|доход)\w* от \d+ ?(?:000|к|k)? ?(?:в день|в неделю|за день)|пассивн\w+ доход|"
+    r"пиши(те)? в (лс|личку)|оплата каждый день",
+    re.I,
+)
+
+
+def homoglyph_words(text: str) -> int:
+    """Words mixing Cyrillic and Latin letters ("Бeз", "Заполнeниe") — a classic spam-filter evasion."""
+    count = 0
+    for w in re.findall(r"[A-Za-zА-Яа-яЁё]{3,}", text):
+        if _CYR.search(w) and _LAT.search(w):
+            count += 1
+    return count
+
+
+def is_spam(n: Normalized) -> bool:
+    # one mixed word is usually a typo ("Cтарший"); spam disguises several words at once
+    return homoglyph_words(n.title) >= 2 or bool(_SCAM.search(f"{n.title}\n{n.description_text[:1500]}"))
+
+
 def is_it(n: Normalized) -> bool:
+    if is_spam(n):
+        return False
     if IT_TITLE.search(n.title):
         return True
     tech = [s for s in n.skills if s in sk.TAXONOMY and s not in SOFT]

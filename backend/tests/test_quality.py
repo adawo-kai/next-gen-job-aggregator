@@ -113,3 +113,23 @@ def test_geekjob_listing_and_posting():
     jp = extract_job_postings((fx / "geekjob_vacancy.html").read_text(encoding="utf-8"))[0]
     raw = posting_to_raw("geekjob", jp, links[0])
     assert raw.title and raw.company == "WIM.Agency" and raw.city == "Москва" and raw.external_id == "172461"
+
+
+@pytest.mark.parametrize("title", [
+    "Бeз опыта / Обработка и сортировка данных / Заполнeниe таблиц",  # latin "e" inside Cyrillic words
+    "Без опыта: заполнение таблиц на дому",
+    "Оператор ПК, заработок от 5000 в день",
+])
+def test_spam_postings_rejected(title):
+    assert not is_it(_n(title, "Python, SQL"))
+
+
+@pytest.mark.parametrize("title", ["Python-разработчик", "QA-инженер (Middle)", "Программист 1С", "IT-специалист"])
+def test_mixed_script_compound_titles_are_not_spam(title):
+    from app.pipeline.quality import homoglyph_words
+
+    assert homoglyph_words(title) == 0
+
+
+def test_single_typo_homoglyph_is_not_spam():
+    assert is_it(_n("Product Analyst | Cтарший продуктовый аналитик"))  # Latin "C" typo, real vacancy
