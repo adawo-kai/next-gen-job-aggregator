@@ -4,7 +4,7 @@ from app.models import User, Vacancy
 from app.pipeline.currency import from_rub, to_rub
 from app.pipeline.match import ProfileView, VacancyView, compute
 
-SOURCE_TITLES = {"hh": "hh.ru", "habr": "Habr Карьера", "telegram": "Telegram", "devkg": "DevKG", "demo": "Demo"}
+SOURCE_TITLES = {"hh": "hh.ru", "habr": "Habr Карьера", "telegram": "Telegram", "devkg": "DevKG", "geekjob": "GeekJob", "demo": "Demo"}
 
 
 def profile_view(u: User, rates: dict[str, float]) -> ProfileView:

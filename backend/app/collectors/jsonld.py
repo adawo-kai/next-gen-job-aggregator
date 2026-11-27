@@ -152,8 +152,8 @@ class JsonLdCollector(BaseCollector):
     def sitemap_urls(self) -> list[str]:  # pragma: no cover - overridden
         raise NotImplementedError
 
-    async def collect(self, limit: int = 100) -> list[RawVacancy]:
-        since = datetime.now(UTC) - timedelta(days=self.max_age_days)
+    async def discover(self, limit: int) -> list[tuple[str, datetime | None]]:
+        """Vacancy URLs (+ lastmod). Default: the site's sitemaps; listing-page boards override this."""
         entries: list[tuple[str, datetime | None]] = []
         for sm in self.sitemap_urls():
             try:
@@ -161,6 +161,11 @@ class JsonLdCollector(BaseCollector):
             except CollectorError:
                 continue  # next month's sitemap may not exist yet
             entries += [(u, ts) for u, ts in parse_sitemap(xml) if self.url_filter.search(u)]
+        return entries
+
+    async def collect(self, limit: int = 100) -> list[RawVacancy]:
+        since = datetime.now(UTC) - timedelta(days=self.max_age_days)
+        entries = await self.discover(limit)
         if not entries:
             raise CollectorError(f"{self.key}: sitemap has no vacancy URLs")
         fresh = [(u, ts) for u, ts in entries if ts is None or ts >= since]

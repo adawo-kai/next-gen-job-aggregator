@@ -57,7 +57,7 @@ services:
   # isolated collector workers: a ban/crash on one source never blocks the others
   worker-collect:
     <<: *backend
-    command: celery -A app.worker worker -Q collect.habr,collect.telegram,collect.hh,collect.devkg,collect.demo -c 3 -n collect@%h --loglevel=INFO
+    command: celery -A app.worker worker -Q collect.habr,collect.telegram,collect.hh,collect.devkg,collect.geekjob,collect.demo -c 3 -n collect@%h --loglevel=INFO
     depends_on:
       bootstrap: { condition: service_completed_successfully }
 

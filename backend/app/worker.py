@@ -21,7 +21,7 @@ from app.config import get_settings
 from app.observability import COLLECT_DURATION, COLLECT_ERRORS, VACANCIES_COLLECTED, log, setup_logging
 
 settings = get_settings()
-SOURCES = ["demo", "habr", "telegram", "hh", "devkg"]
+SOURCES = ["demo", "habr", "telegram", "hh", "devkg", "geekjob"]
 
 celery = Celery("jobs", broker=settings.redis_url, backend=settings.redis_url)
 celery.conf.update(

@@ -57,7 +57,7 @@ async def start(m: Message, command: CommandObject):
                            parse_mode="HTML", reply_markup=open_app_kb())
             return
     await m.answer(
-        "👋 <b>JobRadar</b> — IT-вакансии с hh.ru, Habr Карьеры и Telegram-каналов в одной ленте: без дублей, "
+        "👋 <b>JobRadar</b> — IT-вакансии с Habr Карьеры, GeekJob, DevKG и Telegram-каналов в одной ленте: без дублей, "
         "с саммари, красными флагами и процентом совпадения с вашими навыками.\n\n"
         "Откройте приложение, укажите навыки — и новые подходящие вакансии будут приходить сюда.\n\n"
         "/status — статус · /unlink — отключить уведомления",

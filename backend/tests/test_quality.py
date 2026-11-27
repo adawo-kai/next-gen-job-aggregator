@@ -98,3 +98,18 @@ def test_hourly_and_yearly_salaries_become_monthly():
     assert (r.salary_from, r.salary_to) == (5000, 6000)
     remote = {"title": "Dev", "jobLocationType": "TELECOMMUTE"}
     assert posting_to_raw("x", remote, "u").work_format == "remote"
+
+
+def test_geekjob_listing_and_posting():
+    from pathlib import Path
+
+    from app.collectors.geekjob import listing_links
+    from app.collectors.jsonld import extract_job_postings, posting_to_raw
+
+    fx = Path(__file__).parent / "fixtures"
+    links = listing_links((fx / "geekjob_list.html").read_text(encoding="utf-8"))
+    assert len(links) >= 10 and all(u.startswith("https://geekjob.ru/vacancy/") for u in links)
+    assert len(set(links)) == len(links)
+    jp = extract_job_postings((fx / "geekjob_vacancy.html").read_text(encoding="utf-8"))[0]
+    raw = posting_to_raw("geekjob", jp, links[0])
+    assert raw.title and raw.company == "WIM.Agency" and raw.city == "Москва" and raw.external_id == "172461"

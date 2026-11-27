@@ -7,7 +7,7 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, BOT_URL } from "@/
 import { jsonLdString } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: { absolute: `${SITE_NAME} — ${SITE_TAGLINE}: hh.ru, Habr Карьера, DevKG и Telegram в одной ленте` },
+  title: { absolute: `${SITE_NAME} — ${SITE_TAGLINE}: Habr Карьера, GeekJob, DevKG и Telegram в одной ленте` },
   description: SITE_DESCRIPTION,
   alternates: { canonical: "/" },
 };
@@ -52,7 +52,7 @@ export default function Home() {
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
           </span>
           <span>
-            hh.ru · Habr Карьера · DevKG · Telegram<span className="hidden sm:inline"> — обновляется каждые 15 минут</span>
+            Habr Карьера · GeekJob · DevKG · Telegram<span className="hidden sm:inline"> — обновляется каждые 20 минут</span>
           </span>
         </div>
         <h1 className="mx-auto max-w-3xl text-balance text-4xl font-semibold tracking-[-0.035em] sm:text-6xl">
@@ -61,7 +61,7 @@ export default function Home() {
           <span className="text-brand">Без дублей и воды.</span>
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-balance text-[15px] leading-relaxed text-muted-foreground sm:text-base">
-          Собираем вакансии для разработчиков, тестировщиков, аналитиков и DevOps с hh.ru, Habr Карьеры, DevKG и Telegram-каналов, склеиваем дубли, выжимаем суть с помощью AI, считаем match с вашим резюме и подсвечиваем red flags и вечный поиск.
+          Собираем вакансии для разработчиков, тестировщиков, аналитиков и DevOps с Habr Карьеры, GeekJob, DevKG и Telegram-каналов, склеиваем дубли, выжимаем суть с помощью AI, считаем match с вашим резюме и подсвечиваем red flags и вечный поиск.
         </p>
       </section>
 

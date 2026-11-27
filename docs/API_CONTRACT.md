@@ -12,6 +12,17 @@ Endpoints marked (auth) need a token; vacancies search works anonymously (match_
 
 `Tokens = {access_token, refresh_token, token_type: "bearer", expires_in: 900}`
 
+### Telegram Mini App and account lifecycle
+- `POST /auth/telegram/webapp` `{init_data}` → `Tokens`. HMAC-checked Telegram initData (24h TTL); the account is created on first launch. `/auth/me` then has `email: null`, `display_name`, `telegram_username`, `photo_url`.
+- `POST /auth/password/forgot` `{email}` → 202 `{ok: true}`. Always the same answer, so it doesn't reveal whether the e-mail exists; the link is valid for 1 hour.
+- `POST /auth/password/reset` `{token, password(8+)}` → `Tokens`. One-time token; all other sessions are revoked.
+- `POST /auth/password/change` (auth) `{current_password, new_password}` → `Tokens`. Other sessions are revoked.
+- `POST /auth/logout` `{refresh_token}` → 204. `POST /auth/logout-all` (auth) → 204: every access token dies immediately (`token_version`).
+- `GET /auth/me/export` (auth) → JSON attachment with all personal data. `DELETE /auth/me` (auth) `{confirm: "УДАЛИТЬ"}` → 204.
+- `GET /seo/sitemap` → `{items: {id, updated_at}[]}`.
+
+Rate limits: per client IP and per rule (path prefix + method); exceeding one returns 429 `{detail}` + `Retry-After`. `/health`, `/ready`, `/metrics` and `/docs` are exempt.
+
 ## Profile (auth)
 - `GET /profile` → `Profile`
 - `PUT /profile` `Profile` → `Profile`

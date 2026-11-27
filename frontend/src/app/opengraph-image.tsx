@@ -26,7 +26,7 @@ export default async function Image() {
           >
             Без дублей и воды.
           </div>
-          <div style={{ marginTop: 26, fontSize: 28, color: "#a1a1ad" }}>hh.ru · Habr Карьера · DevKG · Telegram — в одной ленте</div>
+          <div style={{ marginTop: 26, fontSize: 28, color: "#a1a1ad" }}>Habr Карьера · GeekJob · DevKG · Telegram — в одной ленте</div>
           <div style={{ display: "flex", gap: 12, marginTop: 34 }}>
             {features.map((f) => (
               <div key={f} style={{ display: "flex", padding: "10px 18px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.04)", fontSize: 22, color: "#d4d4dc" }}>

@@ -4,7 +4,7 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3
 export const SITE_NAME = "JobRadar";
 export const SITE_TAGLINE = "умный агрегатор IT-вакансий";
 export const SITE_DESCRIPTION =
-  "IT-вакансии с hh.ru, Habr Карьеры, DevKG и Telegram в одной ленте: без дублей, с AI-выжимкой, match score по резюме, детектором вечных вакансий и трекером откликов.";
+  "IT-вакансии с Habr Карьеры, GeekJob, DevKG и Telegram в одной ленте: без дублей, с AI-выжимкой, match score по резюме, детектором вечных вакансий и трекером откликов.";
 
 export const BOT_USERNAME = (process.env.NEXT_PUBLIC_BOT_USERNAME || "NextGenJobAgr_bot").replace(/^@/, "");
 export const BOT_URL = `https://t.me/${BOT_USERNAME}`;

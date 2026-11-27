@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     # collectors
     enabled_sources: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: ["demo", "habr", "telegram", "hh", "devkg"]
+        default_factory=lambda: ["demo", "habr", "telegram", "hh", "devkg", "geekjob"]
     )
     collect_interval_minutes: int = 20
     collect_limit: int = 100

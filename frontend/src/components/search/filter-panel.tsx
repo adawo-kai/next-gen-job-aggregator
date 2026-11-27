@@ -155,7 +155,7 @@ export function FilterPanel({ filters, onChange }: { filters: VacancyFilters; on
 
       <Section title="Источник">
         <div className="space-y-1">
-          {(meta.data?.sources ?? [{ key: "hh", title: "hh.ru", count: 0 }, { key: "habr", title: "Habr Карьера", count: 0 }, { key: "telegram", title: "Telegram", count: 0 }, { key: "devkg", title: "DevKG", count: 0 }]).map((s) => {
+          {(meta.data?.sources ?? [{ key: "habr", title: "Habr Карьера", count: 0 }, { key: "telegram", title: "Telegram", count: 0 }, { key: "devkg", title: "DevKG", count: 0 }, { key: "geekjob", title: "GeekJob", count: 0 }]).map((s) => {
             const active = filters.source?.includes(s.key);
             const m = sourceMeta(s.key);
             return (

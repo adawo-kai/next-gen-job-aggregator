@@ -17,7 +17,7 @@ x-prod-env: &prod-env
   JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
   LOG_LEVEL: INFO
   # real sources only: the generated demo dataset is never loaded in production
-  ENABLED_SOURCES: habr,telegram,hh,devkg
+  ENABLED_SOURCES: habr,telegram,hh,devkg,geekjob
   SENTRY_DSN: ${SENTRY_DSN:-}
   SMTP_URL: ${SMTP_URL:-}
   MAIL_FROM: ${MAIL_FROM:-}
