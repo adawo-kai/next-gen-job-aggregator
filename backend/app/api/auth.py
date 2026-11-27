@@ -17,6 +17,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_redis
 from app.models import User
+from app.ratelimit import client_ip
 from app.security import current_user, hash_password, issue_tokens, rotate_refresh, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -40,9 +41,11 @@ class TokensOut(BaseModel):
 
 async def _rate_limit(request: Request, key: str, limit: int = 10, window: int = 60) -> None:
     """Fixed-window limiter in Redis against credential stuffing."""
+    if not get_settings().rate_limit_enabled:
+        return
     try:
         r = get_redis()
-        k = f"rl:{key}:{request.client.host if request.client else 'x'}"
+        k = f"rl:{key}:{client_ip(request)}"
         n = await r.incr(k)
         if n == 1:
             await r.expire(k, window)

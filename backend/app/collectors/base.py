@@ -71,6 +71,6 @@ def register(key: str):
 
 def registry() -> dict[str, type[BaseCollector]]:
     # import side effects register built-in collectors
-    from app.collectors import demo, habr, hh, telegram  # noqa: F401
+    from app.collectors import demo, devkg, habr, hh, telegram  # noqa: F401
 
     return dict(_REGISTRY)

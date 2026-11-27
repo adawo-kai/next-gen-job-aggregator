@@ -118,6 +118,24 @@ def detect_format(text: str, hint: str | None) -> str | None:
 _CUR = {"rur": "RUB", "rub": "RUB", "руб": "RUB", "₽": "RUB", "usd": "USD", "$": "USD", "eur": "EUR", "€": "EUR", "kzt": "KZT", "₸": "KZT"}
 
 
+_CITY = {
+    "bishkek": "Бишкек", "osh": "Ош", "almaty": "Алматы", "alma-ata": "Алматы", "astana": "Астана",
+    "nur-sultan": "Астана", "shymkent": "Шымкент", "karaganda": "Караганда", "tashkent": "Ташкент",
+    "samarkand": "Самарканд", "moscow": "Москва", "saint petersburg": "Санкт-Петербург",
+    "st. petersburg": "Санкт-Петербург", "spb": "Санкт-Петербург", "спб": "Санкт-Петербург",
+    "msk": "Москва", "мск": "Москва", "novosibirsk": "Новосибирск", "kazan": "Казань",
+    "yekaterinburg": "Екатеринбург", "ekaterinburg": "Екатеринбург", "minsk": "Минск", "yerevan": "Ереван",
+    "tbilisi": "Тбилиси", "belgrade": "Белград", "dushanbe": "Душанбе", "baku": "Баку",
+}
+
+
+def norm_city(city: str | None) -> str | None:
+    if not city:
+        return None
+    c = city.strip().strip(",.")
+    return _CITY.get(c.lower(), c) or None
+
+
 def norm_currency(c: str | None) -> str | None:
     if not c:
         return None
@@ -151,7 +169,7 @@ def normalize(raw: RawVacancy) -> Normalized:
         sf, st = st, sf
     ncomp = norm_company(raw.company)
     ntitle = norm_title(raw.title)
-    city = (raw.city or "").strip() or None
+    city = norm_city(raw.city)
     grade = detect_grade(raw.title, desc_text, raw.grade_hint)
     return Normalized(
         title=re.sub(r"\s+", " ", raw.title).strip()[:300],

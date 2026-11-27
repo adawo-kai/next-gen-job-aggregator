@@ -22,7 +22,15 @@ from app.collectors.base import BaseCollector, CollectorError, RawVacancy, regis
 log = logging.getLogger(__name__)
 
 #: verified 2026-11 to be public, alive and posting IT vacancies
-DEFAULT_CHANNELS = ["job_python", "it_vakansii_jobs", "getitrussia", "forproducts", "jobforjunior", "datasciencejobs"]
+# Probed 27.11.2026 with this very parser: only channels that post IT vacancies regularly (>=1/week).
+DEFAULT_CHANNELS = [
+    # Russia / remote
+    "job_python", "it_vakansii_jobs", "getitrussia", "jobforjunior", "datasciencejobs", "geekjobs",
+    "jobs_juniors_remote", "young_intern", "opento_dev", "devjobs", "remote_jobs_ru", "product_jobs",
+    "workitru", "careerspace",
+    # Central Asia
+    "uzdev_jobs", "maddevsio", "thetechkz", "kolesa_group",
+]
 
 # --------------------------------------------------------------------------- text helpers
 _EMOJI_RE = re.compile(

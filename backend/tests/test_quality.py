@@ -67,3 +67,34 @@ def test_generic_companies_dropped(bad):
 @pytest.mark.parametrize("good", ["Альфа-Банк", "Swordfish Security", "Rambler&Co", "WB—Tech", "Группа Rubytech"])
 def test_real_companies_kept(good):
     assert plausible_company(good) == good
+
+
+def test_jsonld_jobposting_devkg_page():
+    """DevKG: a real saved page with schema.org JobPosting → RawVacancy (KGS salary, Bishkek, company)."""
+    from pathlib import Path
+
+    from app.collectors.jsonld import extract_job_postings, parse_sitemap, posting_to_raw
+
+    html = (Path(__file__).parent / "fixtures" / "devkg_job.html").read_text(encoding="utf-8")
+    jps = extract_job_postings(html)
+    assert len(jps) == 1
+    raw = posting_to_raw("devkg", jps[0], "https://devkg.com/ru/x")
+    assert raw.title == "Программист 1С" and raw.external_id == "20119"
+    assert (raw.salary_from, raw.salary_to, raw.currency) == (80000, 120000, "KGS")
+    assert raw.company and "Шоро" in raw.company and raw.country == "Кыргызстан"
+    n = normalize(raw)
+    assert n.city == "Бишкек" and n.currency == "KGS" and "1C" in n.skills
+
+    xml = ("<urlset><url><loc>https://devkg.com/ru/vakansiya-a-1</loc><lastmod>2026-11-18T05:49:13.854Z</lastmod>"
+           "</url><url><loc>https://devkg.com/en/job-a-1</loc></url></urlset>")
+    assert [u for u, _ in parse_sitemap(xml)] == ["https://devkg.com/ru/vakansiya-a-1", "https://devkg.com/en/job-a-1"]
+
+
+def test_hourly_and_yearly_salaries_become_monthly():
+    from app.collectors.jsonld import posting_to_raw
+
+    yearly = {"title": "Dev", "baseSalary": {"currency": "USD", "value": {"minValue": 60000, "maxValue": 72000, "unitText": "YEAR"}}}
+    r = posting_to_raw("x", yearly, "u")
+    assert (r.salary_from, r.salary_to) == (5000, 6000)
+    remote = {"title": "Dev", "jobLocationType": "TELECOMMUTE"}
+    assert posting_to_raw("x", remote, "u").work_format == "remote"
