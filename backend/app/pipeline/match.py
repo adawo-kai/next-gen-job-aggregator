@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.pipeline.normalize import GRADES
+from app.pipeline.textmatch import stop_word_hits
 
 WEIGHTS = {"skills": 0.55, "grade": 0.15, "salary": 0.15, "format": 0.10, "stop_words": 0.05}
 
@@ -83,15 +84,15 @@ def compute(p: ProfileView, v: VacancyView) -> MatchResult:
         f, note = 0.7, "формат не указан"
     bd.append({"factor": "format", "weight": WEIGHTS["format"], "score": f, "note": note})
 
-    # stop words: hard penalty
-    hay = f"{v.title}\n{v.text}".lower()
-    hits = [w for w in p.stop_words if w and w.lower() in hay]
+    # stop words: in the title/skills -> hard penalty; only in the description -> this factor only
+    head_hits = stop_word_hits(p.stop_words, f"{v.title} {' '.join(v.tags)}")
+    hits = head_hits or stop_word_hits(p.stop_words, v.text)
     sw = 0.0 if hits else 1.0
     bd.append({"factor": "stop_words", "weight": WEIGHTS["stop_words"], "score": sw,
                "note": ("стоп-слова: " + ", ".join(hits)) if hits else "стоп-слов нет"})
 
     total = sum(b["weight"] * b["score"] for b in bd)
-    if hits:
+    if head_hits:
         total *= 0.3
     return MatchResult(
         score=int(round(total * 100)),

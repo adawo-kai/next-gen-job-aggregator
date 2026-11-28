@@ -80,7 +80,7 @@ async def search_vacancies(
 async def _get(session: AsyncSession, vid: int) -> Vacancy:
     v = await session.get(Vacancy, vid)
     if v is None:
-        raise HTTPException(404, "Vacancy not found")
+        raise HTTPException(404, "Вакансия не найдена — возможно, её уже закрыли")
     return v
 
 

@@ -27,7 +27,7 @@ export function ResumeCard({ onProfile }: { onProfile: (p: Profile) => void }) {
       setResult(r);
       track("resume_uploaded");
       onProfile(r.profile);
-      toast.success(`Извлечено навыков: ${r.extracted_skills.length}`, { description: "Профиль обновлён — match score пересчитан" });
+      toast.success(`Извлечено навыков: ${r.extracted_skills.length}`, { description: "Профиль обновлён — совпадение пересчитано" });
     },
     onError: (e) => toast.error("Не удалось разобрать резюме", { description: (e as Error).message }),
   });
@@ -48,7 +48,7 @@ export function ResumeCard({ onProfile }: { onProfile: (p: Profile) => void }) {
       <CardHeader
         icon={<FileText className="h-4 w-4" />}
         title="Резюме"
-        description="AI извлечёт навыки и грейд — на их основе считается match score"
+        description="Извлечём навыки и грейд — по ним считается совпадение с вакансиями"
         action={
           <div className="flex rounded-lg bg-muted p-0.5 ring-1 ring-inset ring-border">
             {(

@@ -6,10 +6,10 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowDownWideNarrow, Ghost, Layers, Loader2, Radar, Search, SearchX, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "@/lib/api";
+import { api, filtersToQuery } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { SortKey, VacancyFilters } from "@/lib/types";
-import { cn, FORMAT_LABEL, GRADE_LABEL, plural, sourceMeta } from "@/lib/utils";
+import { cn, currencySign, FORMAT_LABEL, GRADE_LABEL, plural, sourceMeta } from "@/lib/utils";
 import { Button, Card, EmptyState, Kbd } from "@/components/ui/primitives";
 import { VacancyCard, VacancyCardSkeleton } from "@/components/vacancy/vacancy-card";
 import { activeFilterCount, FilterPanel } from "./filter-panel";
@@ -18,7 +18,7 @@ const SORTS: { key: SortKey; label: string; auth?: boolean }[] = [
   { key: "relevance", label: "По релевантности" },
   { key: "date", label: "Сначала новые" },
   { key: "salary", label: "По зарплате" },
-  { key: "match", label: "По match score", auth: true },
+  { key: "match", label: "По совпадению", auth: true },
 ];
 
 const SUGGESTIONS = ["Python senior удалёнка", "React", "Go Kafka", "Data Engineer", "DevOps"];
@@ -38,6 +38,47 @@ function loadFilters(): VacancyFilters {
     if (raw) return JSON.parse(raw) as VacancyFilters;
   } catch {}
   return {};
+}
+
+const DEFAULTS: VacancyFilters = { sort: "relevance", currency: "RUB" };
+
+/** The URL is the source of truth for a search: shareable links, reload and back/forward just work. */
+function filtersFromUrl(p: URLSearchParams): VacancyFilters {
+  const list = <T extends string>(k: string) => (p.getAll(k).filter(Boolean) as T[]) || undefined;
+  const num = (k: string) => {
+    const n = Number(p.get(k));
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  };
+  const f: VacancyFilters = {
+    q: p.get("q") ?? undefined,
+    salary_min: num("salary_min"),
+    currency: (p.get("currency") as VacancyFilters["currency"]) ?? undefined,
+    grade: list("grade"),
+    tags: list("tags"),
+    format: list("format"),
+    source: list("source"),
+    city: p.get("city") ?? undefined,
+    hide_ghost: p.get("hide_ghost") === "true" || undefined,
+    only_with_salary: p.get("only_with_salary") === "true" || undefined,
+    sort: (p.get("sort") as VacancyFilters["sort"]) ?? undefined,
+  };
+  for (const k of Object.keys(f) as (keyof VacancyFilters)[]) {
+    const v = f[k];
+    if (v === undefined || (Array.isArray(v) && v.length === 0)) delete f[k];
+  }
+  return { ...DEFAULTS, ...f };
+}
+
+/** Only what differs from the defaults goes into the address bar. */
+function filtersToUrl(f: VacancyFilters): string {
+  const clean: VacancyFilters = { ...f, q: f.q?.trim() || undefined };
+  if (clean.sort === DEFAULTS.sort) delete clean.sort;
+  if (clean.currency === DEFAULTS.currency) delete clean.currency;
+  return filtersToQuery(clean);
+}
+
+function isEmptySearch(f: VacancyFilters) {
+  return !f.q?.trim() && activeFilterCount(f) === 0;
 }
 
 export function SearchPage() {
@@ -60,21 +101,41 @@ export function SearchPage() {
     return () => io.disconnect();
   }, []);
 
-  // hydrate from localStorage + ?q=
+  // URL -> state (first load, back/forward, links). Our own writes are recognised and skipped.
+  const lastWritten = useRef<string | null>(null);
+  const [savedSearch, setSavedSearch] = useState<VacancyFilters | null>(null);
   useEffect(() => {
-    const saved = loadFilters();
-    const q = params.get("q");
-    setFilters((f) => ({ ...f, ...saved, ...(q != null ? { q } : {}) }));
+    const qs = params.toString();
+    if (lastWritten.current !== null && qs === lastWritten.current) return;
+    const fromUrl = filtersFromUrl(new URLSearchParams(qs));
+    setFilters(fromUrl);
+    lastWritten.current = filtersToUrl(fromUrl);
+    // the previous search is offered, never applied silently
+    if (!hydrated && isEmptySearch(fromUrl)) {
+      const saved = loadFilters();
+      if (!isEmptySearch(saved)) setSavedSearch(saved);
+    }
     setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
+  // state -> URL (debounced) + remember the last non-empty search for the "вернуть поиск" banner
+  const debouncedForUrl = useDebounced(filters, 400);
   useEffect(() => {
     if (!hydrated) return;
-    try {
-      localStorage.setItem("nja.lastFilters", JSON.stringify(filters));
-    } catch {}
-  }, [filters, hydrated]);
+    const qs = filtersToUrl(debouncedForUrl);
+    if (qs !== lastWritten.current) {
+      lastWritten.current = qs;
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+    }
+    if (!isEmptySearch(debouncedForUrl)) {
+      setSavedSearch(null);
+      try {
+        localStorage.setItem("nja.lastFilters", JSON.stringify(debouncedForUrl));
+      } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedForUrl, hydrated]);
 
   // "/" focuses the search
   useEffect(() => {
@@ -124,12 +185,13 @@ export function SearchPage() {
   const filterCount = activeFilterCount(filters);
 
   const chips: { key: string; label: string; remove: () => void }[] = [];
+  if (filters.q?.trim()) chips.push({ key: "q", label: `Запрос: ${filters.q.trim()}`, remove: () => setFilters({ ...filters, q: "" }) });
   filters.grade?.forEach((g) => chips.push({ key: `g${g}`, label: GRADE_LABEL[g], remove: () => setFilters({ ...filters, grade: filters.grade!.filter((x) => x !== g) }) }));
   filters.format?.forEach((g) => chips.push({ key: `f${g}`, label: FORMAT_LABEL[g], remove: () => setFilters({ ...filters, format: filters.format!.filter((x) => x !== g) }) }));
   filters.tags?.forEach((g) => chips.push({ key: `t${g}`, label: g, remove: () => setFilters({ ...filters, tags: filters.tags!.filter((x) => x !== g) }) }));
   filters.source?.forEach((g) => chips.push({ key: `s${g}`, label: sourceMeta(g).title, remove: () => setFilters({ ...filters, source: filters.source!.filter((x) => x !== g) }) }));
   if (filters.city) chips.push({ key: "city", label: filters.city, remove: () => setFilters({ ...filters, city: undefined }) });
-  if (filters.salary_min) chips.push({ key: "sal", label: `от ${filters.salary_min.toLocaleString("ru-RU")} ${filters.currency ?? "RUB"}`, remove: () => setFilters({ ...filters, salary_min: undefined }) });
+  if (filters.salary_min) chips.push({ key: "sal", label: `от ${filters.salary_min.toLocaleString("ru-RU")} ${currencySign(filters.currency ?? "RUB")}`, remove: () => setFilters({ ...filters, salary_min: undefined }) });
   if (filters.hide_ghost) chips.push({ key: "ghost", label: "Без вечных", remove: () => setFilters({ ...filters, hide_ghost: false }) });
   if (filters.only_with_salary) chips.push({ key: "ows", label: "С зарплатой", remove: () => setFilters({ ...filters, only_with_salary: false }) });
 
@@ -138,13 +200,13 @@ export function SearchPage() {
   return (
     <div>
       {/* ---------- Search (the hero heading is server-rendered by the page) ---------- */}
-      <section className="relative pb-8 text-center sm:pb-10">
+      <section className="relative pb-5 text-center sm:pb-10">
         <motion.div
           ref={heroSearchRef}
           initial={{ opacity: 0, y: 12, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.08 }}
-          className="relative mx-auto mt-8 max-w-2xl"
+          className="relative mx-auto mt-5 max-w-2xl sm:mt-8"
         >
           <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-violet-500/40 via-indigo-500/20 to-cyan-400/40 opacity-60 blur-md" />
           <div className="relative flex items-center gap-2 rounded-2xl border border-border-strong bg-elevated/95 p-1.5 pl-4 shadow-2xl shadow-black/20 backdrop-blur focus-within:ring-2 focus-within:ring-ring">
@@ -153,7 +215,7 @@ export function SearchPage() {
               ref={inputRef}
               value={filters.q ?? ""}
               onChange={(e) => setFilters({ ...filters, q: e.target.value })}
-              placeholder="Должность, стек или компания…"
+              placeholder="Должность или стек"
               className="h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted-foreground/60"
               aria-label="Поиск вакансий"
             />
@@ -171,17 +233,17 @@ export function SearchPage() {
           </div>
         </motion.div>
 
-        <div className="mx-auto mt-4 flex max-w-2xl flex-wrap items-center justify-center gap-2 text-[12.5px] text-muted-foreground">
-          <span>Попробуйте:</span>
+        <div className="-mx-4 mt-3 flex max-w-none flex-nowrap items-center gap-2 overflow-x-auto px-4 text-[12.5px] text-muted-foreground [scrollbar-width:none] sm:mx-auto sm:mt-4 sm:max-w-2xl sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
+          <span className="hidden shrink-0 sm:inline">Попробуйте:</span>
           {SUGGESTIONS.map((s) => (
-            <button key={s} onClick={() => setFilters({ ...filters, q: s })} className="inline-flex h-10 cursor-pointer items-center rounded-full border px-3 transition-colors hover:border-border-strong hover:text-foreground sm:h-7 sm:px-2.5">
+            <button key={s} onClick={() => setFilters({ ...filters, q: s })} className="inline-flex h-9 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-full border px-3 transition-colors hover:border-border-strong hover:text-foreground sm:h-7 sm:px-2.5">
               {s}
             </button>
           ))}
         </div>
 
         {t && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mx-auto mt-8 grid max-w-2xl grid-cols-3 divide-x rounded-2xl border bg-card/50 backdrop-blur">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mx-auto mt-4 grid max-w-2xl grid-cols-3 divide-x rounded-2xl border bg-card/50 backdrop-blur sm:mt-8">
             {[
               { icon: Radar, value: t.vacancies, label: "вакансий в базе" },
               { icon: Layers, value: t.merged_duplicates, label: "дублей склеено" },
@@ -265,7 +327,23 @@ export function SearchPage() {
                 <SlidersHorizontal className="h-3.5 w-3.5" /> Фильтры
                 {filterCount > 0 && <span className="rounded-full bg-primary px-1.5 text-[10.5px] text-primary-foreground">{filterCount}</span>}
               </Button>
-              <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-lg bg-muted/60 p-0.5 ring-1 ring-inset ring-border [scrollbar-width:none]">
+              <label className="relative flex h-10 min-w-0 flex-1 items-center sm:hidden">
+                <span className="sr-only">Сортировка</span>
+                <ArrowDownWideNarrow className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={filters.sort ?? "relevance"}
+                  onChange={(e) => setFilters({ ...filters, sort: e.target.value as SortKey })}
+                  className="h-10 w-full cursor-pointer appearance-none rounded-lg bg-muted/60 pl-8 pr-3 text-[14px] font-medium ring-1 ring-inset ring-border outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {SORTS.map((s) => (
+                    <option key={s.key} value={s.key} disabled={s.auth && !isAuthed}>
+                      {s.label}
+                      {s.auth && !isAuthed ? " (после входа)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div role="group" aria-label="Сортировка" className="hidden min-w-0 items-center gap-0.5 rounded-lg bg-muted/60 p-0.5 ring-1 ring-inset ring-border sm:flex">
                 <ArrowDownWideNarrow className="ml-1.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 {SORTS.map((s) => {
                   const disabled = s.auth && !isAuthed;
@@ -274,7 +352,7 @@ export function SearchPage() {
                     <button
                       key={s.key}
                       disabled={disabled}
-                      title={disabled ? "Войдите, чтобы сортировать по match score" : undefined}
+                      title={disabled ? "Войдите, чтобы сортировать по совпадению с профилем" : undefined}
                       onClick={() => setFilters({ ...filters, sort: s.key })}
                       className={cn(
                         "relative h-9 shrink-0 cursor-pointer whitespace-nowrap rounded-md px-2 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:h-7 sm:px-2.5",
@@ -284,8 +362,7 @@ export function SearchPage() {
                       {active && <motion.span layoutId="sort-pill" className="absolute inset-0 -z-0 rounded-md bg-elevated shadow-sm ring-1 ring-border" transition={{ type: "spring", bounce: 0.15, duration: 0.4 }} />}
                       <span className="relative z-10 inline-flex items-center gap-1">
                         {s.key === "match" && <Sparkles className="h-3 w-3" />}
-                        <span className="hidden sm:inline">{s.label}</span>
-                        <span className="sm:hidden">{s.label.split(" ").pop()}</span>
+                        {s.label}
                       </span>
                     </button>
                   );
@@ -293,6 +370,26 @@ export function SearchPage() {
               </div>
             </div>
           </div>
+
+          {savedSearch && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border bg-card/60 px-3 py-2 text-[13px]">
+              <span className="text-muted-foreground">Прошлый поиск:</span>
+              <span className="min-w-0 truncate font-medium">
+                {[savedSearch.q?.trim(), ...(savedSearch.grade ?? []).map((g) => GRADE_LABEL[g]), ...(savedSearch.tags ?? []), ...(savedSearch.format ?? []).map((f) => FORMAT_LABEL[f])]
+                  .filter(Boolean)
+                  .slice(0, 4)
+                  .join(" · ") || `${activeFilterCount(savedSearch)} фильтр.`}
+              </span>
+              <span className="ml-auto flex gap-1">
+                <Button size="sm" variant="secondary" onClick={() => { setFilters({ ...DEFAULTS, ...savedSearch }); setSavedSearch(null); }}>
+                  Вернуть
+                </Button>
+                <button onClick={() => setSavedSearch(null)} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-muted" aria-label="Скрыть">
+                  <X className="h-4 w-4" />
+                </button>
+              </span>
+            </div>
+          )}
 
           <AnimatePresence initial={false}>
             {chips.length > 0 && (
@@ -320,14 +417,14 @@ export function SearchPage() {
                 <Sparkles className="h-4 w-4" />
               </div>
               <div className="flex-1 text-[13.5px]">
-                <div className="font-medium">Загрузите резюме — и мы посчитаем match score для каждой вакансии</div>
+                <div className="font-medium">Загрузите резюме — и мы посчитаем совпадение с каждой вакансией</div>
                 <div className="text-muted-foreground">Объяснимый скор: какие навыки совпали, чего не хватает, что даст +N вакансий.</div>
               </div>
               <Button size="sm" onClick={() => router.push("/register")}>Попробовать</Button>
             </Card>
           )}
 
-          <div className="space-y-3">
+          <div id="results" aria-label="Список вакансий" aria-busy={query.isLoading || !hydrated} className="space-y-3">
             {(query.isLoading || !hydrated) && Array.from({ length: 5 }).map((_, i) => <VacancyCardSkeleton key={i} />)}
             {query.isError && (
               <EmptyState icon={<SearchX className="h-5 w-5" />} title="Не удалось загрузить вакансии" description={(query.error as Error).message} action={<Button onClick={() => query.refetch()}>Повторить</Button>} />
@@ -364,7 +461,7 @@ export function SearchPage() {
       <Dialog.Root open={mobileFilters} onOpenChange={setMobileFilters}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
-          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t bg-elevated p-5 pb-8 scrollbar-thin">
+          <Dialog.Content aria-label="Фильтры вакансий" aria-describedby={undefined} className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t bg-elevated p-5 pb-8 scrollbar-thin">
             <Dialog.Title className="sr-only">Фильтры</Dialog.Title>
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border-strong" />
             <FilterPanel filters={filters} onChange={setFilters} />

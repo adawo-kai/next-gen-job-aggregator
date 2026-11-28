@@ -14,11 +14,22 @@ import { TagInput } from "./tag-input";
 const GRADES: Grade[] = ["intern", "junior", "middle", "senior", "lead"];
 const FORMATS: Format[] = ["remote", "hybrid", "office"];
 const CURRENCIES: Currency[] = ["RUB", "USD", "EUR", "KZT", "KGS"];
+const MAX_SALARY = 100_000_000;
+
+function salaryError(v: number | null): string | null {
+  if (v == null) return null;
+  if (!Number.isFinite(v) || v < 0) return "Зарплата не может быть отрицательной";
+  if (!Number.isInteger(v)) return "Укажите целое число";
+  if (v > MAX_SALARY) return "Слишком большое значение — проверьте число нулей";
+  return null;
+}
+
 const SKILL_SUGGESTIONS = ["Python", "TypeScript", "React", "Go", "PostgreSQL", "Docker", "Kubernetes", "Kafka", "Redis", "FastAPI", "Next.js", "SQL"];
 
 export function PreferencesCard({ profile, loading }: { profile: Profile | undefined; loading: boolean }) {
   const qc = useQueryClient();
   const [form, setForm] = useState<Profile | null>(profile ?? null);
+  const [salaryErr, setSalaryErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile) setForm(profile);
@@ -31,7 +42,7 @@ export function PreferencesCard({ profile, loading }: { profile: Profile | undef
     onSuccess: (p) => {
       qc.setQueryData(["profile"], p);
       qc.invalidateQueries({ queryKey: ["vacancies"] });
-      toast.success("Профиль сохранён", { description: "Match score пересчитается для новых выдач" });
+      toast.success("Профиль сохранён", { description: "Совпадение пересчитается для новых выдач" });
     },
     onError: (e) => toast.error("Не удалось сохранить", { description: (e as Error).message }),
   });
@@ -43,7 +54,7 @@ export function PreferencesCard({ profile, loading }: { profile: Profile | undef
       <CardHeader
         icon={<SlidersHorizontal className="h-4 w-4" />}
         title="Предпочтения"
-        description="Используются для match score, подписок и skill-gap аналитики"
+        description="По ним считаем совпадение, подбираем подписки и подсказываем, что подтянуть"
         action={
           <AnimatePresence>
             {dirty && (
@@ -70,9 +81,16 @@ export function PreferencesCard({ profile, loading }: { profile: Profile | undef
         </div>
       ) : (
         <form
+          noValidate
           className="space-y-5 p-5"
           onSubmit={(e) => {
             e.preventDefault();
+            const err = salaryError(form.desired_salary);
+            setSalaryErr(err);
+            if (err) {
+              document.getElementById("salary")?.focus();
+              return;
+            }
             save.mutate(form);
           }}
         >
@@ -86,19 +104,31 @@ export function PreferencesCard({ profile, loading }: { profile: Profile | undef
                   min={0}
                   step={10000}
                   value={form.desired_salary ?? ""}
-                  onChange={(e) => set("desired_salary", e.target.value === "" ? null : Number(e.target.value))}
+                  inputMode="numeric"
+                  aria-invalid={!!salaryErr || undefined}
+                  aria-describedby={salaryErr ? "salary-error" : undefined}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? null : Number(e.target.value);
+                    set("desired_salary", v);
+                    if (salaryErr) setSalaryErr(salaryError(v));
+                  }}
                   placeholder="250000"
                   className="pr-12 tabular-nums"
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySign(form.currency)}</span>
               </div>
+              {salaryErr && (
+                <p id="salary-error" role="alert" className="text-[12px] text-rose-600 dark:text-rose-400">
+                  {salaryErr}
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="currency">Валюта</Label>
-              <Select id="currency" value={form.currency} onChange={(e) => set("currency", e.target.value as Currency)} className="w-full sm:w-24">
+              <Select id="currency" value={form.currency} onChange={(e) => set("currency", e.target.value as Currency)} className="w-full sm:w-28">
                 {CURRENCIES.map((c) => (
                   <option key={c} value={c}>
-                    {c}
+                    {currencySign(c)} {c}
                   </option>
                 ))}
               </Select>
@@ -149,7 +179,7 @@ export function PreferencesCard({ profile, loading }: { profile: Profile | undef
               <Ban className="h-3.5 w-3.5" /> Стоп-слова
             </Label>
             <TagInput value={form.stop_words} onChange={(v) => set("stop_words", v)} placeholder="1С, Битрикс, «мы — семья»…" tone="danger" />
-            <p className="text-[12px] text-muted-foreground">Вакансии с этими словами получат низкий match score и не попадут в уведомления.</p>
+            <p className="text-[12px] text-muted-foreground">Вакансии с этими словами получат низкое совпадение и не попадут в уведомления.</p>
           </div>
 
           <div className="flex items-center justify-end gap-2 border-t pt-4">

@@ -17,7 +17,7 @@ import {
   YAxis,
 } from "recharts";
 import type { Format, MarketAnalytics } from "@/lib/types";
-import { FORMAT_LABEL, formatMoney } from "@/lib/utils";
+import { FORMAT_LABEL, formatMoney, plural } from "@/lib/utils";
 
 /* ---------------- tooltip ---------------- */
 
@@ -119,16 +119,42 @@ export function TopSkillsChart({ data }: { data: MarketAnalytics["top_skills"] }
 
 /* ---------------- trend ---------------- */
 
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Is the last point the current, still running day (in UTC or local time)? Its count is incomplete. */
+export function hasPartialToday(data: MarketAnalytics["trend"]) {
+  const last = data[data.length - 1]?.date?.slice(0, 10);
+  if (!last) return false;
+  const now = new Date();
+  return last >= now.toISOString().slice(0, 10) || last >= ymd(now);
+}
+
+/** Complete days only: week-over-week deltas must not count today's half-day. */
+export function completeTrend(data: MarketAnalytics["trend"]) {
+  return hasPartialToday(data) ? data.slice(0, -1) : data;
+}
+
 export function TrendChart({ data }: { data: MarketAnalytics["trend"] }) {
   const id = useId().replace(/:/g, "");
   const fmtDate = (d: string | number) => {
     const dt = new Date(String(d));
     return Number.isNaN(dt.getTime()) ? String(d) : dt.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
   };
+  // today is not over yet: draw it as a dashed continuation instead of a fake drop to ~0
+  const partial = hasPartialToday(data) && data.length > 1;
+  const n = data.length;
+  const rows = data.map((d, i) => ({
+    date: d.date,
+    raw: d.count,
+    today: partial && i === n - 1,
+    count: partial && i === n - 1 ? null : d.count,
+    partial: partial && i >= n - 2 ? d.count : null,
+  }));
   return (
+    <div>
     <div className="h-[240px]">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 10, right: 8, bottom: 0, left: -18 }}>
+        <AreaChart data={rows} margin={{ top: 10, right: 8, bottom: 0, left: -18 }}>
           <defs>
             <linearGradient id={`trend-${id}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#8b7cff" stopOpacity={0.45} />
@@ -154,12 +180,21 @@ export function TrendChart({ data }: { data: MarketAnalytics["trend"] }) {
             cursor={{ stroke: "var(--border-strong)", strokeWidth: 1 }}
             content={
               <ChartTooltip
-                render={(p, label) => (
-                  <div>
-                    <div className="text-muted-foreground">{label != null ? fmtDate(label) : ""}</div>
-                    <div className="font-medium tabular-nums">{Number(p.value ?? 0).toLocaleString("ru-RU")} новых вакансий</div>
-                  </div>
-                )}
+                render={(p, label) => {
+                  const row = p.payload as { raw: number; today: boolean } | undefined;
+                  return (
+                    <div>
+                      <div className="text-muted-foreground">
+                        {label != null ? fmtDate(label) : ""}
+                        {row?.today ? " · сегодня, день ещё идёт" : ""}
+                      </div>
+                      <div className="font-medium tabular-nums">
+                        {(row?.raw ?? Number(p.value ?? 0)).toLocaleString("ru-RU")} {plural(row?.raw ?? 0, "новая вакансия", "новые вакансии", "новых вакансий")}
+                        {row?.today ? " пока" : ""}
+                      </div>
+                    </div>
+                  );
+                }}
               />
             }
           />
@@ -172,8 +207,22 @@ export function TrendChart({ data }: { data: MarketAnalytics["trend"] }) {
             activeDot={{ r: 4, fill: "#8b7cff", stroke: "var(--background)", strokeWidth: 2 }}
             animationDuration={1000}
           />
+          {partial && (
+            <Area
+              type="monotone"
+              dataKey="partial"
+              stroke="#22d3ee"
+              strokeWidth={2}
+              strokeDasharray="4 4"
+              fill="none"
+              activeDot={{ r: 4, fill: "#22d3ee", stroke: "var(--background)", strokeWidth: 2 }}
+              isAnimationActive={false}
+            />
+          )}
         </AreaChart>
       </ResponsiveContainer>
+    </div>
+    {partial && <p className="mt-1 px-3 text-[12px] text-muted-foreground">Пунктир — сегодняшний день: он ещё не закончился, число растёт.</p>}
     </div>
   );
 }

@@ -11,6 +11,30 @@ import { useAuth } from "@/lib/auth";
 import { Logo } from "@/components/nav";
 import { Button, Card, Input, Label } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
+import { MIN_PASSWORD, passwordError, passwordStrength } from "@/lib/password";
+
+/** Strength bars + a one-line hint under a new-password field. */
+export function PasswordStrength({ password, id }: { password: string; id?: string }) {
+  const st = passwordStrength(password);
+  return (
+    <div className="pt-1">
+      <div className="flex gap-1" aria-hidden>
+        {[0, 1, 2, 3].map((i) => (
+          <span
+            key={i}
+            className={cn(
+              "h-1 flex-1 rounded-full transition-colors duration-300",
+              i < st.score ? (st.score >= 3 ? "bg-emerald-400" : st.score === 2 ? "bg-amber-400" : "bg-rose-400") : "bg-border-strong",
+            )}
+          />
+        ))}
+      </div>
+      <p id={id} aria-live="polite" className="mt-1.5 min-h-[18px] text-[12px] text-muted-foreground">
+        {st.label || `Минимум ${MIN_PASSWORD} символов, не «12345678» и не «qwerty»`}
+      </p>
+    </div>
+  );
+}
 
 export function PasswordInput({ id, value, onChange, placeholder, autoComplete }: { id: string; value: string; onChange: (v: string) => void; placeholder?: string; autoComplete?: string }) {
   const [show, setShow] = useState(false);
@@ -56,16 +80,18 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     e.preventDefault();
     setError(null);
     if (isRegister) {
-      if (password.length < 6) return setError("Пароль должен быть не короче 6 символов");
+      const pwErr = passwordError(password);
+      if (pwErr) return setError(pwErr);
       if (password !== confirm) return setError("Пароли не совпадают");
     }
     setLoading(true);
     try {
       await login(email.trim(), password, mode);
       toast.success(isRegister ? "Аккаунт создан" : "С возвращением!", {
-        description: isRegister ? "Загрузите резюме в профиле — посчитаем match score" : email.trim(),
+        description: isRegister ? "Три шага — и лента подстроится под вас" : email.trim(),
       });
-      router.push(next.startsWith("/") ? next : "/");
+      // new accounts land on the onboarding checklist in the profile
+      router.push(isRegister ? "/profile?welcome=1" : next.startsWith("/") ? next : "/");
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.status === 401 ? "Неверный email или пароль" : err.status === 409 ? "Такой email уже зарегистрирован" : err.detail);
@@ -87,7 +113,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           <div className="mb-6 text-center">
             <h1 className="text-xl font-semibold tracking-tight">{isRegister ? "Создать аккаунт" : "Вход в JobRadar"}</h1>
             <p className="mt-1.5 text-[13px] text-muted-foreground">
-              {isRegister ? "Match score, трекер откликов и уведомления в Telegram" : "Продолжите поиск с того места, где остановились"}
+              {isRegister ? "Совпадение с резюме, трекер откликов и уведомления в Telegram" : "Продолжите поиск с того места, где остановились"}
             </p>
           </div>
           <form onSubmit={onSubmit} className="space-y-4">
@@ -107,23 +133,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                   </Link>
                 )}
               </div>
-              <PasswordInput id="password" value={password} onChange={setPassword} placeholder={isRegister ? "Минимум 6 символов" : "••••••••"} autoComplete={isRegister ? "new-password" : "current-password"} />
-              {isRegister && (
-                <div className="flex gap-1 pt-1">
-                  {[0, 1, 2, 3].map((i) => {
-                    const strength = Math.min(4, Math.floor(password.length / 3) + (/[0-9]/.test(password) ? 1 : 0) - (password.length < 6 ? 1 : 0));
-                    return (
-                      <span
-                        key={i}
-                        className={cn(
-                          "h-1 flex-1 rounded-full transition-colors duration-300",
-                          i < strength ? (strength >= 3 ? "bg-emerald-400" : strength === 2 ? "bg-amber-400" : "bg-rose-400") : "bg-border-strong",
-                        )}
-                      />
-                    );
-                  })}
-                </div>
-              )}
+              <PasswordInput id="password" value={password} onChange={setPassword} placeholder={isRegister ? `Минимум ${MIN_PASSWORD} символов` : "••••••••"} autoComplete={isRegister ? "new-password" : "current-password"} />
+              {isRegister && <PasswordStrength password={password} />}
             </div>
             {isRegister && (
               <div className="space-y-1.5">

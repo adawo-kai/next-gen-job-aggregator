@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { TrackerItem, TrackerStatus } from "@/lib/types";
 import { cn, STATUS_ORDER } from "@/lib/utils";
-import { Button, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Button, buttonClass, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { KanbanBoard, normalizeBoard, TRACKER_KEY, useMoveItem } from "@/components/tracker/board";
 import { ItemDrawer } from "@/components/tracker/item-drawer";
 
@@ -76,17 +76,16 @@ export default function TrackerPage() {
       <div className="mx-auto max-w-xl pt-10">
         <EmptyState
           icon={<KanbanSquare className="h-5 w-5" />}
+          titleAs="h1"
           title="Трекер откликов доступен после входа"
           description="Сохраняйте вакансии, двигайте их по этапам от отклика до оффера, ставьте напоминания — бот пришлёт их в Telegram."
           action={
             <div className="flex gap-2">
-              <Link href="/login">
-                <Button>
-                  <LogIn className="h-4 w-4" /> Войти
-                </Button>
+              <Link href="/login?next=/tracker" className={buttonClass()}>
+                <LogIn className="h-4 w-4" /> Войти
               </Link>
-              <Link href="/register">
-                <Button variant="secondary">Создать аккаунт</Button>
+              <Link href="/register?next=/tracker" className={buttonClass({ variant: "secondary" })}>
+                Создать аккаунт
               </Link>
             </div>
           }
@@ -135,8 +134,8 @@ export default function TrackerPage() {
           title="Пока пусто"
           description="Добавьте вакансию в трекер кнопкой «В трекер» в ленте — она появится в колонке «Сохранено»."
           action={
-            <Link href="/">
-              <Button>К вакансиям</Button>
+            <Link href="/" className={buttonClass()}>
+              К вакансиям
             </Link>
           }
         />
@@ -144,7 +143,7 @@ export default function TrackerPage() {
         <KanbanBoard board={q.data!} onOpen={(i) => setSelectedId(String(i.id))} />
       )}
 
-      <ItemDrawer item={selected} open={!!selected} onOpenChange={(v) => !v && setSelectedId(null)} onStatusChange={onStatusChange} />
+      <ItemDrawer item={selected} open={!!selected} onOpenChange={(v) => !v && setSelectedId(null)} onStatusChange={onStatusChange} board={q.data} />
     </div>
   );
 }

@@ -16,13 +16,18 @@ import {
   History,
   MapPin,
   StickyNote,
+  Send,
   Trash2,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { TrackerEvent, TrackerItem, TrackerStatus } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
+import type { TrackerBoard, TrackerEvent, TrackerItem, TrackerStatus } from "@/lib/types";
 import { cn, FORMAT_LABEL, formatDate, STATUS_META, STATUS_ORDER, timeAgo } from "@/lib/utils";
-import { Button, Input, Label, Skeleton, Textarea } from "@/components/ui/primitives";
+import { Button, Input, Label, Skeleton, Textarea, Tooltip } from "@/components/ui/primitives";
+import { useTelegramLink } from "@/components/profile/telegram-card";
+import { canMove, transitionHint } from "./board";
 import { CompanyAvatar, GhostBadge, MatchRing, SalaryText, SourceStack } from "@/components/vacancy/bits";
 import { GradeBadge } from "@/components/vacancy/vacancy-card";
 
@@ -102,13 +107,19 @@ export function ItemDrawer({
   open,
   onOpenChange,
   onStatusChange,
+  board,
 }: {
   item: TrackerItem | null;
+  /** for the allowed-transitions table */
+  board?: TrackerBoard;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onStatusChange: (item: TrackerItem, to: TrackerStatus) => void;
 }) {
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const tgLinked = !!user?.telegram_linked;
+  const tgLink = useTelegramLink();
   const [note, setNote] = useState("");
   const [remAt, setRemAt] = useState(defaultReminderValue);
   const [remText, setRemText] = useState("");
@@ -146,7 +157,11 @@ export function ItemDrawer({
       return api.addReminder(itemId!, d.toISOString(), remText.trim() || "Напоминание по вакансии");
     },
     onSuccess: (r) => {
-      toast.success("Напоминание создано", { description: `${formatDate(r.remind_at, true)} — придёт в Telegram` });
+      toast.success("Напоминание создано", {
+        description: tgLinked
+          ? `${formatDate(r.remind_at, true)} — придёт в Telegram`
+          : `${formatDate(r.remind_at, true)} · чтобы его получить, привяжите Telegram-бота`,
+      });
       setRemText("");
       setRemAt(defaultReminderValue());
       refresh();
@@ -236,25 +251,43 @@ export function ItemDrawer({
                 <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 scrollbar-thin">
                   {/* status */}
                   <section>
-                    <Label>Статус</Label>
-                    <div className="mt-2 grid grid-cols-3 gap-1.5">
-                      {STATUS_ORDER.map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => s !== item.status && onStatusChange(item, s)}
-                          className={cn(
-                            "flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium ring-1 ring-inset transition-all",
-                            s === item.status
-                              ? "bg-muted text-foreground ring-border-strong shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_10%,transparent)]"
-                              : "text-muted-foreground ring-border hover:text-foreground hover:ring-border-strong",
-                          )}
-                        >
-                          <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s].dot)} />
-                          {STATUS_META[s].title}
-                        </button>
-                      ))}
+                    <Label id="tracker-status-label">Статус</Label>
+                    <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="group" aria-labelledby="tracker-status-label" aria-describedby="tracker-status-hint">
+                      {STATUS_ORDER.map((s) => {
+                        const current = s === item.status;
+                        const allowed = current || canMove(board, item.status, s);
+                        const btn = (
+                          <button
+                            key={s}
+                            type="button"
+                            aria-pressed={current}
+                            aria-disabled={!allowed || undefined}
+                            onClick={() => !current && allowed && onStatusChange(item, s)}
+                            className={cn(
+                              "flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] font-medium ring-1 ring-inset transition-all",
+                              current
+                                ? "cursor-default bg-muted text-foreground ring-border-strong shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_10%,transparent)]"
+                                : allowed
+                                  ? "cursor-pointer text-muted-foreground ring-border hover:text-foreground hover:ring-border-strong"
+                                  : "cursor-not-allowed text-muted-foreground/60 ring-border/60",
+                            )}
+                          >
+                            <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_META[s].dot, !allowed && "opacity-40")} />
+                            {STATUS_META[s].title}
+                          </button>
+                        );
+                        return allowed ? (
+                          btn
+                        ) : (
+                          <Tooltip key={s} content={transitionHint(board, item.status)}>
+                            {btn}
+                          </Tooltip>
+                        );
+                      })}
                     </div>
+                    <p id="tracker-status-hint" className="mt-2 text-[12px] text-muted-foreground">
+                      {transitionHint(board, item.status)}
+                    </p>
                   </section>
 
                   {/* note */}
@@ -290,6 +323,24 @@ export function ItemDrawer({
                         </div>
                       ))}
                     </div>
+                    {!tgLinked && (
+                      <div className="mt-3 flex flex-col gap-2.5 rounded-xl bg-amber-500/[0.08] p-3 ring-1 ring-inset ring-amber-500/25 sm:flex-row sm:items-center">
+                        <TriangleAlert className="hidden h-4 w-4 shrink-0 text-amber-600 sm:block dark:text-amber-300" />
+                        <p className="flex-1 text-[12.5px] leading-snug text-amber-800 dark:text-amber-200">
+                          Напоминание придёт только в Telegram — привяжите бота
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          loading={tgLink.isPending}
+                          onClick={() => tgLink.mutate()}
+                          className="shrink-0 bg-[#229ED9] text-white shadow-none hover:bg-[#1E8FC4]"
+                        >
+                          {!tgLink.isPending && <Send className="h-3.5 w-3.5" />}
+                          Привязать Telegram
+                        </Button>
+                      </div>
+                    )}
                     <form
                       className="mt-3 rounded-xl border border-dashed p-3"
                       onSubmit={(e) => {
@@ -298,11 +349,11 @@ export function ItemDrawer({
                       }}
                     >
                       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                        <Input placeholder="Например: написать HR" value={remText} onChange={(e) => setRemText(e.target.value)} />
-                        <Input type="datetime-local" value={remAt} onChange={(e) => setRemAt(e.target.value)} className="sm:w-[200px]" required />
+                        <Input aria-label="Текст напоминания" placeholder="Например: написать HR" value={remText} onChange={(e) => setRemText(e.target.value)} />
+                        <Input aria-label="Дата и время напоминания" type="datetime-local" value={remAt} onChange={(e) => setRemAt(e.target.value)} className="sm:w-[200px]" required />
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-2">
-                        <span className="text-[11.5px] text-muted-foreground">Придёт в Telegram-бот</span>
+                        <span className="text-[11.5px] text-muted-foreground">{tgLinked ? "Придёт в Telegram-бот" : "Telegram не привязан"}</span>
                         <Button size="sm" type="submit" loading={addReminder.isPending}>
                           {!addReminder.isPending && <BellPlus className="h-4 w-4" />}
                           Напомнить

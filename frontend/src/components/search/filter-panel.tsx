@@ -1,12 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronDown, Ghost, RotateCcw, Wallet } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BellPlus, Check, ChevronDown, Ghost, RotateCcw, Wallet } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { track } from "@/lib/analytics";
 import type { Currency, Format, Grade, VacancyFilters } from "@/lib/types";
 import { cn, currencySign, FORMAT_LABEL, GRADE_LABEL, sourceMeta } from "@/lib/utils";
-import { Chip, Input, Label, Select, Skeleton, Switch } from "@/components/ui/primitives";
+import { Button, Chip, Input, Select, Skeleton, Switch } from "@/components/ui/primitives";
 
 const GRADES: Grade[] = ["intern", "junior", "middle", "senior", "lead"];
 const FORMATS: Format[] = ["remote", "hybrid", "office"];
@@ -52,6 +56,56 @@ export function activeFilterCount(f: VacancyFilters) {
   );
 }
 
+/** «Python · Senior · Удалёнка» — a readable auto name for a saved search. */
+export function subscriptionName(f: VacancyFilters): string {
+  const parts = [
+    f.q?.trim(),
+    ...(f.tags ?? []).slice(0, 2),
+    ...(f.grade ?? []).map((g) => GRADE_LABEL[g]),
+    ...(f.format ?? []).map((x) => FORMAT_LABEL[x]),
+    f.city,
+    f.salary_min ? `от ${f.salary_min.toLocaleString("ru-RU")} ${currencySign(f.currency ?? "RUB")}` : undefined,
+  ].filter(Boolean) as string[];
+  let name = "";
+  for (const p of parts) {
+    const next = name ? `${name} · ${p}` : p;
+    if (next.length > 60) break;
+    name = next;
+  }
+  return name || "Мой поиск";
+}
+
+function SaveAsSubscription({ filters }: { filters: VacancyFilters }) {
+  const { isAuthed } = useAuth();
+  const router = useRouter();
+  const qc = useQueryClient();
+  const m = useMutation({
+    mutationFn: () => {
+      const rest: VacancyFilters = { ...filters, q: filters.q?.trim() || undefined };
+      delete rest.sort;
+      if (!rest.salary_min) delete rest.currency;
+      return api.createSubscription({ name: subscriptionName(filters), filters: rest, mode: "instant", min_match: null });
+    },
+    onSuccess: (s) => {
+      track("subscription_created");
+      qc.invalidateQueries({ queryKey: ["subscriptions"] });
+      toast.success(`Подписка «${s.name}» сохранена`, {
+        description: "Новые вакансии по этому поиску придут в Telegram. Настроить — в профиле",
+        action: { label: "В профиль", onClick: () => router.push("/profile#subscriptions") },
+      });
+    },
+    onError: (e) => toast.error("Не удалось сохранить подписку", { description: (e as Error).message }),
+  });
+  const active = !!filters.q?.trim() || activeFilterCount(filters) > 0;
+  if (!isAuthed || !active) return null;
+  return (
+    <Button type="button" variant="secondary" size="sm" className="mt-3 w-full" loading={m.isPending} onClick={() => m.mutate()}>
+      {!m.isPending && <BellPlus className="h-3.5 w-3.5" />}
+      Сохранить поиск как подписку
+    </Button>
+  );
+}
+
 export function FilterPanel({ filters, onChange }: { filters: VacancyFilters; onChange: (f: VacancyFilters) => void }) {
   const meta = useQuery({ queryKey: ["meta"], queryFn: api.meta, staleTime: 5 * 60_000 });
   const [showAllTags, setShowAllTags] = useState(false);
@@ -73,6 +127,7 @@ export function FilterPanel({ filters, onChange }: { filters: VacancyFilters; on
           </button>
         )}
       </div>
+      <SaveAsSubscription filters={filters} />
 
       <Section title="Зарплата от">
         <div className="flex gap-2">
@@ -92,7 +147,7 @@ export function FilterPanel({ filters, onChange }: { filters: VacancyFilters; on
           <Select value={filters.currency ?? "RUB"} onChange={(e) => set({ currency: e.target.value as Currency })} aria-label="Валюта">
             {CURRENCIES.map((c) => (
               <option key={c} value={c}>
-                {currencySign(c)} {c}
+                {currencySign(c)}
               </option>
             ))}
           </Select>
@@ -140,7 +195,7 @@ export function FilterPanel({ filters, onChange }: { filters: VacancyFilters; on
                 <Chip key={t.tag} active={filters.tags?.includes(t.tag)} onClick={() => set({ tags: toggle(filters.tags, t.tag) })}>
                   {filters.tags?.includes(t.tag) && <Check className="h-3 w-3" />}
                   {t.tag}
-                  <span className="text-[10.5px] tabular-nums text-muted-foreground/70">{t.count}</span>
+                  <span className="text-[10.5px] tabular-nums text-muted-foreground">{t.count}</span>
                 </Chip>
               ))}
             </div>
@@ -172,7 +227,7 @@ export function FilterPanel({ filters, onChange }: { filters: VacancyFilters; on
                 </span>
                 <span className={cn("h-2 w-2 rounded-full", m.dot)} />
                 <span className="flex-1 text-left">{s.title}</span>
-                {s.count > 0 && <span className="text-[11.5px] tabular-nums text-muted-foreground/70">{s.count}</span>}
+                {s.count > 0 && <span className="text-[11.5px] tabular-nums text-muted-foreground">{s.count}</span>}
               </button>
             );
           })}
@@ -206,7 +261,6 @@ export function FilterPanel({ filters, onChange }: { filters: VacancyFilters; on
           <Switch checked={!!filters.only_with_salary} onCheckedChange={(v) => set({ only_with_salary: v })} />
         </label>
       </div>
-      <Label className="sr-only">filters</Label>
     </div>
   );
 }

@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +25,25 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class Credentials(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=6, max_length=128)
+    password: str = Field(min_length=1, max_length=128)  # login: any length (older accounts)
+
+
+COMMON_PASSWORDS = {
+    "12345678", "123456789", "1234567890", "password", "password1", "qwerty123", "qwertyui", "11111111",
+    "00000000", "iloveyou", "1q2w3e4r", "1qaz2wsx", "qwerty12", "abcd1234", "passw0rd", "12341234",
+    "87654321", "йцукенгш", "пароль123", "admin123",
+}
+
+
+class RegisterIn(Credentials):
+    password: str = Field(min_length=8, max_length=128)  # same rule as reset/change
+
+    @field_validator("password")
+    @classmethod
+    def not_common(cls, v: str) -> str:
+        if v.lower() in COMMON_PASSWORDS:
+            raise ValueError("Слишком простой пароль — придумайте другой")
+        return v
 
 
 class RefreshIn(BaseModel):
@@ -50,7 +68,7 @@ async def _rate_limit(request: Request, key: str, limit: int = 10, window: int =
         if n == 1:
             await r.expire(k, window)
         if n > limit:
-            raise HTTPException(429, "Too many attempts, try later")
+            raise HTTPException(429, "Слишком много попыток, попробуйте через минуту")
     except HTTPException:
         raise
     except Exception:
@@ -58,10 +76,10 @@ async def _rate_limit(request: Request, key: str, limit: int = 10, window: int =
 
 
 @router.post("/register", response_model=TokensOut, status_code=201)
-async def register(body: Credentials, request: Request, session: AsyncSession = Depends(get_session)):
+async def register(body: RegisterIn, request: Request, session: AsyncSession = Depends(get_session)):
     await _rate_limit(request, "register")
     if await session.scalar(select(User).where(User.email == body.email.lower())):
-        raise HTTPException(409, "Email already registered")
+        raise HTTPException(409, "Этот email уже зарегистрирован — войдите или восстановите пароль")
     user = User(email=body.email.lower(), password_hash=hash_password(body.password), work_formats=[], skills=[], stop_words=[], hidden_vacancies=[])
     session.add(user)
     await session.flush()
@@ -73,7 +91,7 @@ async def login(body: Credentials, request: Request, session: AsyncSession = Dep
     await _rate_limit(request, "login")
     user = await session.scalar(select(User).where(User.email == body.email.lower()))
     if user is None or not verify_password(body.password, user.password_hash):
-        raise HTTPException(401, "Invalid email or password")
+        raise HTTPException(401, "Неверный email или пароль")
     return await issue_tokens(session, user)
 
 
@@ -106,21 +124,21 @@ def verify_init_data(init_data: str, bot_token: str, ttl: int) -> dict:
     pairs = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=False))
     received = pairs.pop("hash", None)
     if not received:
-        raise HTTPException(401, "initData without hash")
+        raise HTTPException(401, "Не удалось проверить вход из Telegram, откройте приложение заново")
     check = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
     secret = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
     expected = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, received):
-        raise HTTPException(401, "initData signature mismatch")
+        raise HTTPException(401, "Не удалось проверить вход из Telegram, откройте приложение заново")
     auth_date = int(pairs.get("auth_date", "0") or 0)
     if ttl and time.time() - auth_date > ttl:
-        raise HTTPException(401, "initData expired, reopen the app")
+        raise HTTPException(401, "Сессия Telegram устарела, откройте приложение заново")
     try:
         pairs["user"] = json.loads(pairs.get("user", "{}"))
     except ValueError:
-        raise HTTPException(401, "bad user payload")
+        raise HTTPException(401, "Не удалось проверить вход из Telegram, откройте приложение заново")
     if not pairs["user"].get("id"):
-        raise HTTPException(401, "no user in initData")
+        raise HTTPException(401, "Не удалось проверить вход из Telegram, откройте приложение заново")
     return pairs
 
 
@@ -128,7 +146,7 @@ def verify_init_data(init_data: str, bot_token: str, ttl: int) -> dict:
 async def telegram_webapp(body: WebAppIn, request: Request, session: AsyncSession = Depends(get_session)):
     s = get_settings()
     if not s.telegram_bot_token:
-        raise HTTPException(503, "Telegram bot is not configured")
+        raise HTTPException(503, "Вход через Telegram временно недоступен")
     await _rate_limit(request, "tg-webapp", limit=30)
     data = verify_init_data(body.init_data, s.telegram_bot_token, s.tg_init_data_ttl_seconds)
     tg = data["user"]

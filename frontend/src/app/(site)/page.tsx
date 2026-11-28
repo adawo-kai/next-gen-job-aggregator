@@ -14,9 +14,9 @@ export const metadata: Metadata = {
 
 const FEATURES = [
   { icon: Layers, title: "Без дублей", text: "Одна и та же вакансия с разных площадок склеивается в одну карточку со ссылками на все оригиналы." },
-  { icon: Sparkles, title: "AI-выжимка", text: "Что делать, что требуют и какие условия — коротко, без «дружного коллектива» и воды." },
-  { icon: Target, title: "Match score", text: "Загрузите резюме: для каждой вакансии посчитаем совпадение и объясним, каких навыков не хватает." },
-  { icon: Ghost, title: "Вечные вакансии", text: "Подсвечиваем объявления, которые месяцами перевыкладывают без найма, и red flags в тексте." },
+  { icon: Sparkles, title: "Коротко о вакансии", text: "Что делать, что требуют и какие условия — в трёх блоках, без «дружного коллектива» и воды." },
+  { icon: Target, title: "Совпадение с резюме", text: "Загрузите резюме: для каждой вакансии посчитаем процент совпадения и подскажем, что подтянуть." },
+  { icon: Ghost, title: "Вечные вакансии", text: "Подсвечиваем объявления, которые месяцами перевыкладывают без найма, и тревожные признаки в тексте." },
   { icon: ListChecks, title: "Трекер откликов", text: "Канбан откликов от «Сохранено» до оффера с заметками и напоминаниями написать HR." },
   { icon: Send, title: "Telegram-бот", text: "Мгновенные уведомления о подходящих вакансиях и мини-приложение прямо в Telegram." },
 ];
@@ -45,8 +45,8 @@ export default function Home() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(websiteLd) }} />
       {/* server-rendered: crawlers see the heading and intro without running JavaScript */}
-      <section className="relative pt-6 text-center sm:pt-12">
-        <div className="mx-auto mb-5 inline-flex max-w-full items-center gap-2 rounded-full border bg-card/60 px-3 py-1 text-[12px] text-muted-foreground backdrop-blur">
+      <section className="relative pt-0 text-center sm:pt-12">
+        <div className="mx-auto mb-5 hidden max-w-full items-center gap-2 rounded-full border bg-card/60 px-3 py-1 text-[12px] text-muted-foreground backdrop-blur sm:inline-flex">
           <span className="relative flex h-1.5 w-1.5 shrink-0">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -55,19 +55,22 @@ export default function Home() {
             Habr Карьера · GeekJob · DevKG · Telegram<span className="hidden sm:inline"> — обновляется каждые 20 минут</span>
           </span>
         </div>
-        <h1 className="mx-auto max-w-3xl text-balance text-4xl font-semibold tracking-[-0.035em] sm:text-6xl">
+        <h1 className="mx-auto max-w-3xl text-balance text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-6xl sm:leading-none sm:tracking-[-0.035em]">
           <span className="text-gradient">Все IT-вакансии.</span>
           <br />
           <span className="text-brand">Без дублей и воды.</span>
         </h1>
-        <p className="mx-auto mt-4 max-w-xl text-balance text-[15px] leading-relaxed text-muted-foreground sm:text-base">
+        <p className="mx-auto mt-4 hidden max-w-xl text-balance text-[15px] leading-relaxed text-muted-foreground sm:block sm:text-base">
           Склеиваем дубли, выжимаем суть и показываем, насколько вакансия подходит вашему резюме.
         </p>
       </section>
 
-      <Suspense fallback={<SearchFallback />}>
-        <SearchPage />
-      </Suspense>
+      {/* target of the «Перейти к вакансиям» skip link */}
+      <div id="vacancies" tabIndex={-1} className="scroll-mt-16 outline-none">
+        <Suspense fallback={<SearchFallback />}>
+          <SearchPage />
+        </Suspense>
+      </div>
 
       <section aria-labelledby="how" className="mt-16 border-t pt-10">
         <h2 id="how" className="text-xl font-semibold tracking-tight sm:text-2xl">

@@ -61,8 +61,9 @@ async def test_search_filters_and_cursor(client):
     assert seniors["items"] and all(i["grade"] == "senior" for i in seniors["items"])
 
     by_salary = (await client.get("/api/v1/vacancies", params={"sort": "salary", "limit": 20})).json()["items"]
-    tops = [i["salary"]["rub_to"] or i["salary"]["rub_from"] or 0 for i in by_salary]
-    assert tops == sorted(tops, reverse=True)
+    mids = [((i["salary"]["rub_from"] or i["salary"]["rub_to"]) + (i["salary"]["rub_to"] or i["salary"]["rub_from"])) / 2
+            for i in by_salary if not i["salary"]["estimated"]]
+    assert mids and mids == sorted(mids, reverse=True)  # middle of the stated range, high to low
 
     q = (await client.get("/api/v1/vacancies", params={"q": "python", "sort": "relevance", "limit": 10})).json()
     assert q["items"] and any("Python" in i["tags"] or "python" in i["title"].lower() for i in q["items"])
@@ -384,3 +385,36 @@ async def test_password_reset_change_logout_export_delete(client, monkeypatch):
 async def test_sitemap_endpoint(client):
     items = (await client.get("/api/v1/seo/sitemap")).json()["items"]
     assert items and {"id", "updated_at"} <= set(items[0])
+
+
+async def test_search_synonyms_symbols_and_honest_salary(client):
+    py = (await client.get("/api/v1/vacancies", params={"q": "python", "limit": 5})).json()
+    translit = (await client.get("/api/v1/vacancies", params={"q": "пайтон", "limit": 5})).json()
+    assert translit["total"] > 0 and translit["total"] == py["total"]
+    # symbols are kept: "c++" never degenerates into a search for the letter "c"
+    for q, skill in (("c++", "C++"), ("c#", "C#")):
+        found = (await client.get("/api/v1/vacancies", params={"q": q, "limit": 50})).json()["items"]
+        assert all(skill in i["tags"] or q in i["title"].lower() for i in found)
+    rich = (await client.get("/api/v1/vacancies", params={"salary_min": 300000, "limit": 100})).json()["items"]
+    assert rich and all(not i["salary"]["estimated"] for i in rich)
+    by_sal = (await client.get("/api/v1/vacancies", params={"sort": "salary", "limit": 30})).json()["items"]
+    est = [i["salary"]["estimated"] for i in by_sal]
+    assert est == sorted(est)  # every stated salary comes before any market estimate
+    rel = (await client.get("/api/v1/vacancies", params={"q": "python", "sort": "relevance", "limit": 5})).json()["items"]
+    assert "python" in rel[0]["title"].lower()  # title hits rank first
+
+
+async def test_stop_words_hard_filter(client):
+    r = await client.post("/api/v1/auth/register", json={"email": f"sw{uuid.uuid4().hex[:8]}@t.dev", "password": "secret123"})
+    hdr = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    base = (await client.get("/api/v1/vacancies", headers=hdr, params={"q": "1с", "limit": 1})).json()["total"]
+    assert base > 0
+    await client.put("/api/v1/profile", headers=hdr, json={"skills": ["Python"], "stop_words": ["1C"]})  # Latin C
+    after = (await client.get("/api/v1/vacancies", headers=hdr, params={"q": "1с", "limit": 50})).json()
+    assert after["total"] < base and all("1с" not in i["title"].lower().replace("c", "с") for i in after["items"])
+
+
+async def test_register_password_rules(client):
+    weak = await client.post("/api/v1/auth/register", json={"email": f"w{uuid.uuid4().hex[:8]}@t.dev", "password": "12345678"})
+    short = await client.post("/api/v1/auth/register", json={"email": f"s{uuid.uuid4().hex[:8]}@t.dev", "password": "abc12"})
+    assert weak.status_code == 422 and short.status_code == 422

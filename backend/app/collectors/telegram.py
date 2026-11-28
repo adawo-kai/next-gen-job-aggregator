@@ -445,8 +445,24 @@ _GENERIC_COMPANY = {
 }
 _GRADE_ONLY = re.compile(r"^(?:junior|middle|senior|lead|intern|джуниор|миддл|сеньор|стажер|стажёр)[\s+/]*"
                          r"(?:(?:junior|middle|senior|lead)[\s+]*)?$", re.I)
-_CONTENT_POST = re.compile(r"^(?:что |как |почему |зачем |топ |должен знать|\d+ (?:способ|причин|ошиб|совет))|"
-                           r"\bзапустил\w*\b|\bстатья\b|\bгайд\b|\bчек-?лист\b", re.I)
+_CONTENT_POST = re.compile(
+    r"^(?:что |как |почему |зачем |топ |должен знать|\d+ (?:способ|причин|ошиб|совет|полезн|сайт|ресурс|канал|книг|курс|инструмент))|"
+    r"\b(?:запустил\w*|запускает|хотят|объявил\w*|рассказал\w*|выпустил\w*|набор на|вебинар\w*|митап\w*|"
+    r"конференци\w*|интенсив\w*|бинго|дайджест|подборк\w*)\b|\bстатья\b|\bгайд\b|\bчек-?лист\b",
+    re.I,
+)
+# a vacancy title names a role (a person), not just a technology: 'PHP-бинго', 'MUGALIM' are not vacancies
+_ROLE_NOUN = re.compile(
+    r"разработчик|developer|\bdev\b|engineer|инженер|программист|аналитик|analyst|тестировщик|\bqa\b|\baqa\b|"
+    r"devops|\bsre\b|дизайнер|designer|менеджер|manager|\blead\b|лид\b|тимлид|архитектор|architect|scientist|"
+    r"администратор|admin|специалист|specialist|руководитель|\bhead\b|\bcto\b|\bcpo\b|стажер|стажёр|intern|"
+    r"owner|продакт|рекрутер|recruiter|маркетолог|верстальщик|consultant|консультант|методолог|оператор|"
+    r"researcher|исследовател|writer|писател|support|поддержк|backend|frontend|fullstack|full-stack|"
+    r"бэкенд|фронтенд|mlops|эксперт|expert|director|директор|coordinator|координатор",
+    re.I,
+)
+# 'Продакт-менеджерам', 'Разработчикам' address a group: a post for them, not a vacancy
+_ADDRESSING = re.compile(r"(менеджер|разработчик|аналитик|дизайнер|тестировщик|инженер|специалист|джун)(ам|ов)\b", re.I)
 
 
 def clean_title(title: str) -> str:
@@ -456,11 +472,13 @@ def clean_title(title: str) -> str:
 
 
 def plausible_title(title: str) -> bool:
-    if not title or len(title) < 4 or title[0].islower():
-        return False  # titles taken from a bullet line ("самостоятельно вести DS-решения")
-    if _GRADE_ONLY.match(title) or _CONTENT_POST.search(title) or title.endswith("?"):
+    if not title or len(title) < 4 or len(title) > 110:
+        return False  # a long sentence is news/an announcement, not a job title
+    if not title[0].isalnum() or title[0].islower():
+        return False  # '$Lead', or a bullet line ("самостоятельно вести DS-решения")
+    if _GRADE_ONLY.match(title) or _CONTENT_POST.search(title) or _ADDRESSING.search(title) or title.endswith("?"):
         return False
-    return bool(_ROLE_KW.search(title))
+    return bool(_ROLE_NOUN.search(title))
 
 
 def plausible_company(name: str | None) -> str | None:

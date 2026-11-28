@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
 from app.deps import get_redis
-from app.models import CollectorRun, Company, User, Vacancy, VacancySource
+from app.models import CollectorRun, User, Vacancy, VacancySource
 from app.pipeline.currency import get_rates
 from app.pipeline.market import percentile
 from app.pipeline.match import compute
@@ -39,10 +39,13 @@ async def market(tag: str | None = None, grade: str | None = None, session: Asyn
         pass
     q = select(Vacancy.tags, Vacancy.grade, Vacancy.salary_rub_from, Vacancy.salary_rub_to, Vacancy.salary_estimated,
                Vacancy.work_format, Vacancy.published_at)
+    conds = []
     if tag:
-        q = q.where(Vacancy.tags.contains([tag]))
+        conds.append(Vacancy.tags.contains([tag]))
     if grade:
-        q = q.where(Vacancy.grade == grade)
+        conds.append(Vacancy.grade == grade)
+    q = q.where(*conds)
+    ids = select(Vacancy.id).where(*conds)
     rows = (await session.execute(q)).all()
 
     skill_cnt: Counter[str] = Counter()
@@ -66,14 +69,18 @@ async def market(tag: str | None = None, grade: str | None = None, session: Asyn
     since24 = datetime.now(UTC) - timedelta(hours=24)
     by_src = (await session.execute(select(VacancySource.source, func.count(func.distinct(VacancySource.vacancy_id))).group_by(VacancySource.source))).all()
     errs = dict((await session.execute(select(CollectorRun.source, func.count()).where(CollectorRun.status == "error", CollectorRun.started_at >= since24).group_by(CollectorRun.source))).all())
-    total_links = await session.scalar(select(func.count()).select_from(VacancySource))
+    # every total respects the same filters, so KPI tiles always describe the selected slice
+    total_links = await session.scalar(select(func.count()).where(VacancySource.vacancy_id.in_(ids)))
+    companies = await session.scalar(
+        select(func.count(func.distinct(Vacancy.company_id))).where(*conds, Vacancy.company_id.is_not(None)))
+    ghosts = await session.scalar(select(func.count()).where(*conds, Vacancy.is_ghost.is_(True)))
     out = {
         "totals": {
             "vacancies": len(rows),
-            "companies": await session.scalar(select(func.count()).select_from(Company)) or 0,
+            "companies": companies or 0,
             "sources": len(by_src),
-            "merged_duplicates": max((total_links or 0) - len(rows), 0) if not (tag or grade) else None,
-            "ghosts": await session.scalar(select(func.count()).where(Vacancy.is_ghost.is_(True))) or 0,
+            "merged_duplicates": max((total_links or 0) - len(rows), 0),
+            "ghosts": ghosts or 0,
         },
         "top_skills": [
             {"skill": s, "count": c, "median_salary_rub": int(statistics.median(skill_sal[s])) if skill_sal[s] else None}

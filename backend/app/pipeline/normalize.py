@@ -72,6 +72,42 @@ def strip_html(s: str) -> str:
     return re.sub(r"\n\s*\n+", "\n", s).strip()
 
 
+_BULLET = re.compile(r"^\s*(?:[•·▪◦●○■□➤►▶✓✔☑✅🔹🔸🔷🔶👉➡️\-–—*]|\d{1,2}[.)])\s+")
+_HEADING = re.compile(r"^\s*[^\s].{0,60}:\s*$")
+
+
+def text_to_html(text: str) -> str:
+    """Plain-text postings (Telegram, some boards) -> paragraphs, headings and real <ul> lists."""
+    if re.search(r"<(p|br|ul|li|div|h\d)\b", text, re.I):
+        return text  # already HTML
+    out: list[str] = []
+    items: list[str] = []
+
+    def flush():
+        if items:
+            out.append("<ul>" + "".join(f"<li>{i}</li>" for i in items) + "</ul>")
+            items.clear()
+
+    # inline bullets ("Требования: • Python • SQL") become separate lines
+    text = re.sub(r"\s+[•▪●]\s+", "\n• ", text)
+    for raw_line in text.splitlines():
+        line = html.escape(raw_line.strip())
+        if not line:
+            flush()
+            continue
+        m = _BULLET.match(raw_line)
+        if m:
+            items.append(html.escape(raw_line[m.end():].strip()))
+        elif _HEADING.match(raw_line):
+            flush()
+            out.append(f"<p><strong>{line}</strong></p>")
+        else:
+            flush()
+            out.append(f"<p>{line}</p>")
+    flush()
+    return "".join(out)
+
+
 def norm_company(name: str | None) -> str | None:
     if not name:
         return None
@@ -176,7 +212,7 @@ def normalize(raw: RawVacancy) -> Normalized:
         norm_title=ntitle,
         company=(raw.company or "").strip() or None,
         norm_company=ncomp,
-        description_html=raw.description or "",
+        description_html=text_to_html(raw.description or ""),
         description_text=desc_text,
         salary_from=sf,
         salary_to=st,

@@ -13,7 +13,8 @@ import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Button, Card, CardHeader, Input, Label } from "@/components/ui/primitives";
 import { PasswordInput } from "@/components/auth/auth-form";
-import { MIN_PASSWORD } from "@/components/auth/password-forms";
+import { MIN_PASSWORD, passwordError } from "@/lib/password";
+import { PasswordStrength } from "@/components/auth/auth-form";
 
 const CONFIRM_WORD = "УДАЛИТЬ";
 
@@ -62,7 +63,8 @@ function ChangePassword() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (next.length < MIN_PASSWORD) return setError(`Новый пароль должен быть не короче ${MIN_PASSWORD} символов`);
+    const pwErr = passwordError(next);
+    if (pwErr) return setError(pwErr);
     if (next !== confirm) return setError("Пароли не совпадают");
     if (next === current) return setError("Новый пароль совпадает с текущим");
     m.mutate();
@@ -96,6 +98,7 @@ function ChangePassword() {
                 <div className="space-y-1.5">
                   <Label htmlFor="new-pass">Новый пароль</Label>
                   <PasswordInput id="new-pass" value={next} onChange={setNext} autoComplete="new-password" placeholder={`От ${MIN_PASSWORD} символов`} />
+                  <PasswordStrength password={next} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="new-pass2">Повторите</Label>
@@ -199,12 +202,48 @@ function DeleteAccountDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   );
 }
 
+/* ---------------- logout everywhere ---------------- */
+
+function LogoutAllDialog({ open, onOpenChange, onConfirm, pending }: { open: boolean; onOpenChange: (v: boolean) => void; onConfirm: () => void; pending: boolean }) {
+  return (
+    <Dialog.Root open={open} onOpenChange={(v) => !pending && onOpenChange(v)}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border bg-elevated p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:pb-5">
+          <div className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-muted text-foreground/80 ring-1 ring-inset ring-border">
+              <LogOut className="h-5 w-5" />
+            </div>
+            <div>
+              <Dialog.Title className="text-[16px] font-semibold">Выйти на всех устройствах?</Dialog.Title>
+              <Dialog.Description className="mt-1 text-[13.5px] leading-relaxed text-muted-foreground">
+                Все сессии завершатся, включая эту: на телефоне, в других браузерах и здесь придётся войти заново. Данные аккаунта не пострадают.
+              </Dialog.Description>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Dialog.Close asChild>
+              <Button type="button" variant="secondary" className="h-11 sm:h-9" disabled={pending}>
+                Отмена
+              </Button>
+            </Dialog.Close>
+            <Button type="button" loading={pending} onClick={onConfirm} className="h-11 sm:h-9">
+              {!pending && <LogOut className="h-4 w-4" />} Выйти везде
+            </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
 /* ---------------- card ---------------- */
 
 export function AccountCard() {
   const { user, forget } = useAuth();
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [logoutAllOpen, setLogoutAllOpen] = useState(false);
 
   const exportData = useMutation({
     mutationFn: api.exportMe,
@@ -218,6 +257,7 @@ export function AccountCard() {
   const logoutAll = useMutation({
     mutationFn: api.logoutAll,
     onSuccess: () => {
+      setLogoutAllOpen(false);
       forget();
       router.push("/login");
       toast.success("Вы вышли на всех устройствах");
@@ -236,7 +276,7 @@ export function AccountCard() {
         ) : (
           <p className="py-3 text-[13px] text-muted-foreground">Аккаунт создан через Telegram — пароль не нужен, вход выполняется автоматически.</p>
         )}
-        <button className={row} disabled={logoutAll.isPending} onClick={() => logoutAll.mutate()}>
+        <button className={row} disabled={logoutAll.isPending} onClick={() => setLogoutAllOpen(true)}>
           <LogOut className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="flex-1">
             <span className="block text-[14px] font-medium">Выйти на всех устройствах</span>
@@ -270,6 +310,7 @@ export function AccountCard() {
         .
       </p>
       <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} />
+      <LogoutAllDialog open={logoutAllOpen} onOpenChange={setLogoutAllOpen} onConfirm={() => logoutAll.mutate()} pending={logoutAll.isPending} />
     </Card>
   );
 }

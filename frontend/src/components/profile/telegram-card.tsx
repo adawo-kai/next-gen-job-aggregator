@@ -8,20 +8,26 @@ import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { Button, Card } from "@/components/ui/primitives";
 
-export function TelegramCard() {
-  const { user } = useAuth();
+/** The Telegram linking flow: a one-time deep link to the bot, then `me` is refreshed (linked status). */
+export function useTelegramLink() {
   const qc = useQueryClient();
-  const linked = !!user?.telegram_linked;
-  const m = useMutation({
+  return useMutation({
     mutationFn: api.telegramLink,
     onSuccess: (r) => {
       track("tg_link");
       window.open(r.deep_link, "_blank", "noopener,noreferrer");
       toast.success("Откройте бота в Telegram", { description: "Нажмите «Start» — ссылка действует 10 минут" });
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["me"] }), 4000);
+      // the user confirms in Telegram a few seconds later: poll `me` a couple of times
+      for (const ms of [4000, 12000, 30000]) setTimeout(() => qc.invalidateQueries({ queryKey: ["me"] }), ms);
     },
     onError: (e) => toast.error("Не удалось получить ссылку", { description: (e as Error).message }),
   });
+}
+
+export function TelegramCard() {
+  const { user } = useAuth();
+  const linked = !!user?.telegram_linked;
+  const m = useTelegramLink();
 
   return (
     <Card className="relative overflow-hidden p-5">
@@ -45,7 +51,7 @@ export function TelegramCard() {
             Мгновенные уведомления о подходящих вакансиях, дайджесты и напоминания из трекера — с кнопками «В избранное», «Скрыть», «В трекер».
           </p>
           <ul className="mt-3 space-y-1.5 text-[12.5px] text-muted-foreground">
-            {["Вакансии с match выше порога", "«Нет ответа 3 дня — напишите HR»", "Привязка через одноразовую deep-link"].map((t) => (
+            {["Вакансии с совпадением выше порога", "«Нет ответа 3 дня — напишите HR»", "Привязка через одноразовую deep-link"].map((t) => (
               <li key={t} className="flex items-center gap-2">
                 <BellRing className="h-3.5 w-3.5 text-[#37AEE2]" /> {t}
               </li>

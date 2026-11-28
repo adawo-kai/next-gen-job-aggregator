@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const v = await load(id);
   if (v === "unavailable") return { title: "Вакансия" };
-  if (!v) return { title: "Вакансия не найдена", robots: { index: false } };
+  if (!v) return { title: "Вакансия не найдена — возможно, её уже закрыли", robots: { index: false } };
   const title = vacancyTitle(v);
   const description = vacancyMetaDescription(v);
   const url = `/vacancies/${v.id}`;

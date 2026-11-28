@@ -7,14 +7,16 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import Select, and_, func, literal, not_, or_, select
+from sqlalchemy import Select, and_, case, func, literal, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User, Vacancy
 from app.pipeline.currency import to_rub
+from app.pipeline.textmatch import lookalike_variants, search_tokens, stop_word_terms, token_canonical
 
 
 @dataclass
@@ -65,18 +67,32 @@ def build_query(p: SearchParams, rates: dict[str, float], user: User | None) -> 
         tsq_ru = func.websearch_to_tsquery("russian", text)
         tsq_en = func.websearch_to_tsquery("english", text)
         tsq_simple = func.websearch_to_tsquery("simple", text)
-        fts = or_(Vacancy.search.op("@@")(tsq_ru), Vacancy.search.op("@@")(tsq_en), Vacancy.search.op("@@")(tsq_simple))
-        trgm = func.word_similarity(func.lower(literal(text)), func.lower(Vacancy.title)) > 0.5
-        q = q.where(or_(fts, trgm))
+        # every word must match somewhere; a word may match by text, by title, or as a known skill
+        # ("пайтон" -> Python, "c++" / "c#" stay distinct instead of collapsing to "c")
+        title_boost = literal(0.0)
+        for tok in search_tokens(text)[:8]:
+            canon = token_canonical(tok)
+            alts = {v for v in lookalike_variants(tok)} | ({canon.lower()} if canon else set())
+            conds = [Vacancy.title.ilike(f"%{_like(a)}%") for a in alts]
+            if canon:
+                conds.append(Vacancy.tags.contains([canon]))
+            if re.fullmatch(r"[\w]+", tok):  # plain words also via full-text (morphology)
+                for cfg in ("russian", "english", "simple"):
+                    conds.append(Vacancy.search.op("@@")(func.plainto_tsquery(cfg, tok)))
+            q = q.where(or_(*conds))
+            title_boost = title_boost + case((or_(*[Vacancy.title.ilike(f"%{_like(a)}%") for a in alts]), 1.0), else_=0.0)
         rank = (
             func.ts_rank_cd(Vacancy.search, tsq_ru)
             + func.ts_rank_cd(Vacancy.search, tsq_en)
             + func.ts_rank_cd(Vacancy.search, tsq_simple)
             + func.word_similarity(func.lower(literal(text)), func.lower(Vacancy.title))
+            + title_boost  # a hit in the title beats a hit in the tags/description
         )
     if p.salary_min:
+        # only real salaries count: a market estimate must never satisfy "от N"
         rub = to_rub(p.salary_min, p.currency, rates)
-        q = q.where(func.coalesce(Vacancy.salary_rub_to, Vacancy.salary_rub_from) >= rub)
+        q = q.where(func.coalesce(Vacancy.salary_rub_to, Vacancy.salary_rub_from) >= rub,
+                    Vacancy.salary_estimated.is_(False))
     if p.only_with_salary:
         q = q.where(Vacancy.salary_rub_from.is_not(None), Vacancy.salary_estimated.is_(False))
     if p.grade:
@@ -99,9 +115,19 @@ def build_query(p: SearchParams, rates: dict[str, float], user: User | None) -> 
         if user.hidden_vacancies:
             q = q.where(Vacancy.id.not_in(user.hidden_vacancies))
         for w in user.stop_words or []:
-            if w.strip():
-                q = q.where(not_(Vacancy.title.ilike(f"%{w.strip()}%")))
+            terms = stop_word_terms(w)
+            if not terms:
+                continue
+            # hard filter on the title (+ skill tag): look-alike letters, word forms and synonyms included
+            hit = or_(*[Vacancy.title.ilike(f"%{_like(t)}%") for t in terms])
+            if canon := token_canonical(w):
+                hit = or_(hit, Vacancy.tags.contains([canon]))
+            q = q.where(not_(hit))
     return q, rank
+
+
+def _like(s: str) -> str:
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 async def run_search(session: AsyncSession, p: SearchParams, rates: dict[str, float], user: User | None,
@@ -135,7 +161,11 @@ async def run_search(session: AsyncSession, p: SearchParams, rates: dict[str, fl
 
     off = int(cur.get("o", 0))
     if p.sort == "salary":
-        order = [func.coalesce(Vacancy.salary_rub_to, Vacancy.salary_rub_from).desc().nulls_last(), Vacancy.id.desc()]
+        # middle of the real range; estimates go after every vacancy with a stated salary
+        mid = (func.coalesce(Vacancy.salary_rub_from, Vacancy.salary_rub_to)
+               + func.coalesce(Vacancy.salary_rub_to, Vacancy.salary_rub_from)) / 2
+        real_mid = case((Vacancy.salary_estimated.is_(True), None), else_=mid)
+        order = [real_mid.desc().nulls_last(), Vacancy.id.desc()]
     else:
         order = [rank.desc(), Vacancy.published_at.desc()]
     rows = (await session.execute(q.order_by(*order).offset(off).limit(limit + 1))).scalars().all()

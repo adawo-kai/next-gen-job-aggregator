@@ -142,3 +142,8 @@ export function hashHue(s: string) {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
   return h;
 }
+
+/** True when the amounts were converted into a display currency other than the employer's one. */
+export function isConverted(s: Salary) {
+  return (s.converted_from != null || s.converted_to != null) && !!s.display_currency && s.display_currency !== s.currency;
+}

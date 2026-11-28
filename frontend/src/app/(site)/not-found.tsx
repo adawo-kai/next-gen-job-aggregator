@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SearchX } from "lucide-react";
+import { buttonClass } from "@/components/ui/button-class";
+
+export const metadata: Metadata = {
+  title: "Страница не найдена",
+  robots: { index: false },
+};
 
 export default function SiteNotFound() {
   return (
@@ -8,8 +15,8 @@ export default function SiteNotFound() {
         <SearchX className="h-6 w-6" />
       </div>
       <h1 className="text-xl font-semibold tracking-tight">Страница не найдена</h1>
-      <p className="mt-2 text-[14px] text-muted-foreground">Возможно, ссылка устарела или вакансию сняли с публикации.</p>
-      <Link href="/" className="mt-6 inline-flex h-11 items-center rounded-xl bg-foreground px-5 text-[15px] font-medium text-background">
+      <p className="mt-2 text-[14px] text-muted-foreground">Возможно, ссылка устарела или в адресе опечатка.</p>
+      <Link href="/" className={buttonClass({ size: "lg", className: "mt-6" })}>
         К вакансиям
       </Link>
     </div>
