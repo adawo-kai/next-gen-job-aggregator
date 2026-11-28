@@ -61,7 +61,7 @@ export default function Home() {
           <span className="text-brand">Без дублей и воды.</span>
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-balance text-[15px] leading-relaxed text-muted-foreground sm:text-base">
-          Собираем вакансии для разработчиков, тестировщиков, аналитиков и DevOps с Habr Карьеры, GeekJob, DevKG и Telegram-каналов, склеиваем дубли, выжимаем суть с помощью AI, считаем match с вашим резюме и подсвечиваем red flags и вечный поиск.
+          Склеиваем дубли, выжимаем суть и показываем, насколько вакансия подходит вашему резюме.
         </p>
       </section>
 
