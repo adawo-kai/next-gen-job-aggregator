@@ -53,20 +53,20 @@ async def rotate_refresh(session: AsyncSession, token: str) -> dict:
     try:
         data = jwt.decode(token, get_settings().jwt_secret, algorithms=[ALGO])
     except jwt.PyJWTError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid refresh token")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Сессия недействительна, войдите заново")
     if data.get("type") != "refresh":
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token type")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Сессия недействительна, войдите заново")
     row = await session.scalar(select(RefreshToken).where(RefreshToken.jti == data["jti"]))
     if row is None or row.revoked:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token revoked")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Сессия завершена, войдите заново")
     if row.used:
         await session.execute(update(RefreshToken).where(RefreshToken.family == row.family).values(revoked=True))
         await session.commit()
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token reuse detected; session revoked")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Сессия завершена из соображений безопасности, войдите заново")
     row.used = True
     user = await session.get(User, row.user_id)
     if user is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Аккаунт не найден")
     return await issue_tokens(session, user, family=row.family)
 
 
@@ -76,14 +76,14 @@ async def _user_from_creds(creds: HTTPAuthorizationCredentials | None, session: 
     try:
         data = jwt.decode(creds.credentials, get_settings().jwt_secret, algorithms=[ALGO])
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token expired")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Сессия истекла")
     except jwt.PyJWTError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Сессия недействительна, войдите заново")
     if data.get("type") != "access":
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token type")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Сессия недействительна, войдите заново")
     user = await session.get(User, int(data["sub"]))
     if user is not None and int(data.get("tv", 0)) != (user.token_version or 0):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session revoked")  # logged out everywhere
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Сессия завершена, войдите заново")  # logged out everywhere
     return user
 
 
@@ -93,7 +93,7 @@ async def current_user(
 ) -> User:
     user = await _user_from_creds(creds, session)
     if user is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Нужно войти в аккаунт")
     return user
 
 

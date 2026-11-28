@@ -133,3 +133,31 @@ def test_mixed_script_compound_titles_are_not_spam(title):
 
 def test_single_typo_homoglyph_is_not_spam():
     assert is_it(_n("Product Analyst | Cтарший продуктовый аналитик"))  # Latin "C" typo, real vacancy
+
+
+def test_plain_text_description_becomes_structured_html():
+    from app.pipeline.normalize import text_to_html
+
+    h = text_to_html("Ищем Python-разработчика.\n\nТребования:\n• Python 3\n• PostgreSQL\n- Docker\n\nУсловия: удалёнка • ДМС • <b>бонусы</b>")
+    assert "<p><strong>Требования:</strong></p>" in h
+    assert "<ul><li>Python 3</li><li>PostgreSQL</li><li>Docker</li></ul>" in h
+    assert "<li>ДМС</li>" in h and "&lt;b&gt;" in h  # inline bullets split; raw HTML in text is escaped
+    assert text_to_html("<p>already html</p>") == "<p>already html</p>"
+
+
+@pytest.mark.parametrize("title", ["$Lead", "PHP-бинго", "MUGALIM", "Продакт-менеджерам",
+                                   "50 полезных сайтов для IT-специалиста",
+                                   "В России хотят продавать игры с разрешения государства и платформ"])
+def test_telegram_junk_titles_rejected(title):
+    assert not plausible_title(title)
+
+
+def test_stop_words_lookalikes_forms_and_synonyms():
+    from app.pipeline.textmatch import stop_word_hits, token_canonical
+
+    assert stop_word_hits(["1С"], "1C Developer (Senior)") == ["1С"]  # Cyrillic С vs Latin C
+    assert stop_word_hits(["стажировка"], "Оплачиваемые стажировки в Яндексе") == ["стажировка"]
+    assert stop_word_hits(["стажировка"], "Стажёр-аналитик") == ["стажировка"]
+    assert stop_word_hits(["1С"], "Senior Python Developer") == []
+    assert token_canonical("пайтон") == "Python" and token_canonical("джава") == "Java"
+    assert token_canonical("c++") == "C++" and token_canonical("c#") == "C#" and token_canonical("с++") == "C++"

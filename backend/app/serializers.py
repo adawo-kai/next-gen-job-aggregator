@@ -49,7 +49,7 @@ def card(v: Vacancy, rates: dict[str, float], display_currency: str = "RUB", mat
         "company": {
             "id": v.company.id if v.company else None,
             "name": v.company.name if v.company else "Компания не указана",
-            "trust_score": v.company.trust_score if v.company else 50,
+            "trust_score": v.company.trust_score if v.company else None,  # unknown employer: no score at all
             "logo_url": v.company.logo_url if v.company else None,
         },
         "salary": {

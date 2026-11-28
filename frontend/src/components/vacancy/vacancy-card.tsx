@@ -53,7 +53,7 @@ export function VacancyCard({ v, index = 0, compact = false }: { v: TVacancy; in
                   </h3>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-muted-foreground">
                     <span className="font-medium text-foreground/80">{v.company.name}</span>
-                    <TrustScore score={v.company.trust_score} withLabel={false} />
+                    {v.company.trust_score != null && <TrustScore score={v.company.trust_score} withLabel={false} />}
                     {v.city && (
                       <span className="inline-flex items-center gap-1">
                         <MapPin className="h-3 w-3" />

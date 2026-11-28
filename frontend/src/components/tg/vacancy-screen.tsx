@@ -59,10 +59,12 @@ function Header({ v, onMenu }: { v: Card; onMenu?: () => void }) {
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex min-w-0 items-center gap-1.5 text-[15px]">
             <span className="truncate font-medium">{v.company.name}</span>
-            <span className={cn("inline-flex shrink-0 items-center gap-0.5 text-[13px] font-medium tabular-nums", trustTone(v.company.trust_score))}>
-              <ShieldCheck className="h-3.5 w-3.5" />
-              {v.company.trust_score}
-            </span>
+            {v.company.trust_score != null && (
+              <span className={cn("inline-flex shrink-0 items-center gap-0.5 text-[13px] font-medium tabular-nums", trustTone(v.company.trust_score))}>
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {v.company.trust_score}
+              </span>
+            )}
           </div>
           <div className="text-[13px] text-muted-foreground">
             {timeAgo(v.published_at)}

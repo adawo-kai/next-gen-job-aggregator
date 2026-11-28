@@ -19,6 +19,8 @@ from app.serializers import card, match_score
 router = APIRouter(prefix="/tracker", tags=["tracker"])
 
 STATUSES = ["saved", "applied", "test_task", "interview", "offer", "rejected"]
+STATUS_RU = {"saved": "Сохранено", "applied": "Откликнулся", "test_task": "Тестовое", "interview": "Интервью",
+             "offer": "Оффер", "rejected": "Отказ"}
 TRANSITIONS: dict[str, set[str]] = {
     "saved": {"applied", "rejected"},
     "applied": {"saved", "test_task", "interview", "offer", "rejected"},
@@ -64,7 +66,7 @@ def _item(i: TrackerItem, rates, user) -> dict:
 async def _own(session: AsyncSession, user: User, item_id: int) -> TrackerItem:
     i = await session.get(TrackerItem, item_id)
     if i is None or i.user_id != user.id:
-        raise HTTPException(404, "Tracker item not found")
+        raise HTTPException(404, "Карточка трекера не найдена")
     return i
 
 
@@ -82,11 +84,11 @@ async def board(user: User = Depends(current_user), session: AsyncSession = Depe
 @router.post("", status_code=201)
 async def add(body: CreateIn, user: User = Depends(current_user), session: AsyncSession = Depends(get_session)):
     if body.status not in STATUSES:
-        raise HTTPException(422, "Unknown status")
+        raise HTTPException(422, "Неизвестный статус")
     if await session.get(Vacancy, body.vacancy_id) is None:
-        raise HTTPException(404, "Vacancy not found")
+        raise HTTPException(404, "Вакансия не найдена")
     if await session.scalar(select(TrackerItem).where(TrackerItem.user_id == user.id, TrackerItem.vacancy_id == body.vacancy_id)):
-        raise HTTPException(409, "Already in tracker")
+        raise HTTPException(409, "Вакансия уже в трекере")
     pos = await session.scalar(select(func.coalesce(func.max(TrackerItem.position), 0)).where(TrackerItem.user_id == user.id))
     item = TrackerItem(user_id=user.id, vacancy_id=body.vacancy_id, status=body.status, position=(pos or 0) + 1)
     session.add(item)
@@ -103,9 +105,9 @@ async def patch(item_id: int, body: PatchIn, user: User = Depends(current_user),
     i = await _own(session, user, item_id)
     if body.status and body.status != i.status:
         if body.status not in STATUSES:
-            raise HTTPException(422, "Unknown status")
+            raise HTTPException(422, "Неизвестный статус")
         if not can_move(i.status, body.status):
-            raise HTTPException(422, f"Transition {i.status} → {body.status} is not allowed")
+            raise HTTPException(422, f"Из «{STATUS_RU[i.status]}» нельзя сразу перейти в «{STATUS_RU[body.status]}»")
         session.add(TrackerEvent(item_id=i.id, kind="status", payload={"from": i.status, "to": body.status}))
         if body.status == "applied":
             r = Reminder(item_id=i.id, remind_at=datetime.now(UTC) + timedelta(days=FOLLOW_UP_DAYS),

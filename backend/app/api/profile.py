@@ -39,10 +39,10 @@ async def get_profile(user: User = Depends(current_user)):
 @router.put("")
 async def put_profile(body: ProfileIO, user: User = Depends(current_user), session: AsyncSession = Depends(get_session)):
     if body.grade and body.grade not in GRADES:
-        raise HTTPException(422, f"grade must be one of {GRADES}")
+        raise HTTPException(422, "Неизвестный грейд")
     bad = [f for f in body.work_formats if f not in FORMATS]
     if bad:
-        raise HTTPException(422, f"unknown formats: {bad}")
+        raise HTTPException(422, f"Неизвестный формат работы: {', '.join(bad)}")
     user.desired_salary = body.desired_salary
     user.currency = body.currency.upper()
     user.grade = body.grade
@@ -73,16 +73,16 @@ async def upload_resume(request: Request, file: UploadFile | None = File(None),
     if file is not None:
         data = await file.read()
         if len(data) > 5 * 1024 * 1024:
-            raise HTTPException(413, "File too large (max 5 MB)")
+            raise HTTPException(413, "Файл больше 5 МБ")
         text = extract_text(file.filename or "resume.txt", data)
     else:
         try:
             body = await request.json()
             text = str(body.get("text", ""))
         except Exception:
-            raise HTTPException(422, "Send multipart 'file' or JSON {text}")
+            raise HTTPException(422, "Прикрепите файл резюме или вставьте текст")
     if len(text.strip()) < 20:
-        raise HTTPException(422, "Resume text is empty or unreadable")
+        raise HTTPException(422, "Не удалось прочитать резюме: файл пустой или это скан без текста")
     found = sk.extract(text)
     grade = detect_grade(text[:200], text, None)
     user.skills = list(dict.fromkeys([*(user.skills or []), *found]))

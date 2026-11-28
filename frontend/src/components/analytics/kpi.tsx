@@ -6,9 +6,11 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, Skeleton } from "@/components/ui/primitives";
 
-export function CountUp({ value, className, format }: { value: number; className?: string; format?: (n: number) => string }) {
+export function CountUp({ value: raw, className, format }: { value: number | null | undefined; className?: string; format?: (n: number) => string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const prev = useRef(0);
+  // the API may return null for a metric; animating to null crashes motion and takes the page down
+  const value = typeof raw === "number" && Number.isFinite(raw) ? raw : 0;
   useEffect(() => {
     const fmt = format ?? ((n: number) => Math.round(n).toLocaleString("ru-RU"));
     const controls = animate(prev.current, value, {

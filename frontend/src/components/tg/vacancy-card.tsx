@@ -42,10 +42,12 @@ export const VacancyCard = memo(function VacancyCard({ v, onOpen }: { v: Card; o
           <div className="line-clamp-2 text-[16px] font-semibold leading-[1.25] tracking-[-0.01em]">{v.title}</div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[14px] text-muted-foreground">
             <span className="truncate">{v.company.name}</span>
-            <span className={cn("inline-flex shrink-0 items-center gap-0.5 text-[13px] font-medium tabular-nums", trustTone(v.company.trust_score))}>
-              <ShieldCheck className="h-3.5 w-3.5" />
-              {v.company.trust_score}
-            </span>
+            {v.company.trust_score != null && (
+              <span className={cn("inline-flex shrink-0 items-center gap-0.5 text-[13px] font-medium tabular-nums", trustTone(v.company.trust_score))}>
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {v.company.trust_score}
+              </span>
+            )}
           </div>
         </div>
         {v.match_score != null && <MatchRing score={v.match_score} size={42} stroke={3.5} />}

@@ -6,7 +6,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowDownWideNarrow, Ghost, Layers, Loader2, Radar, Search, SearchX, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "@/lib/api";
+import { api, filtersToQuery } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { SortKey, VacancyFilters } from "@/lib/types";
 import { cn, FORMAT_LABEL, GRADE_LABEL, plural, sourceMeta } from "@/lib/utils";
@@ -40,6 +40,47 @@ function loadFilters(): VacancyFilters {
   return {};
 }
 
+const DEFAULTS: VacancyFilters = { sort: "relevance", currency: "RUB" };
+
+/** The URL is the source of truth for a search: shareable links, reload and back/forward just work. */
+function filtersFromUrl(p: URLSearchParams): VacancyFilters {
+  const list = <T extends string>(k: string) => (p.getAll(k).filter(Boolean) as T[]) || undefined;
+  const num = (k: string) => {
+    const n = Number(p.get(k));
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  };
+  const f: VacancyFilters = {
+    q: p.get("q") ?? undefined,
+    salary_min: num("salary_min"),
+    currency: (p.get("currency") as VacancyFilters["currency"]) ?? undefined,
+    grade: list("grade"),
+    tags: list("tags"),
+    format: list("format"),
+    source: list("source"),
+    city: p.get("city") ?? undefined,
+    hide_ghost: p.get("hide_ghost") === "true" || undefined,
+    only_with_salary: p.get("only_with_salary") === "true" || undefined,
+    sort: (p.get("sort") as VacancyFilters["sort"]) ?? undefined,
+  };
+  for (const k of Object.keys(f) as (keyof VacancyFilters)[]) {
+    const v = f[k];
+    if (v === undefined || (Array.isArray(v) && v.length === 0)) delete f[k];
+  }
+  return { ...DEFAULTS, ...f };
+}
+
+/** Only what differs from the defaults goes into the address bar. */
+function filtersToUrl(f: VacancyFilters): string {
+  const clean: VacancyFilters = { ...f, q: f.q?.trim() || undefined };
+  if (clean.sort === DEFAULTS.sort) delete clean.sort;
+  if (clean.currency === DEFAULTS.currency) delete clean.currency;
+  return filtersToQuery(clean);
+}
+
+function isEmptySearch(f: VacancyFilters) {
+  return !f.q?.trim() && activeFilterCount(f) === 0;
+}
+
 export function SearchPage() {
   const params = useSearchParams();
   const router = useRouter();
@@ -60,21 +101,41 @@ export function SearchPage() {
     return () => io.disconnect();
   }, []);
 
-  // hydrate from localStorage + ?q=
+  // URL -> state (first load, back/forward, links). Our own writes are recognised and skipped.
+  const lastWritten = useRef<string | null>(null);
+  const [savedSearch, setSavedSearch] = useState<VacancyFilters | null>(null);
   useEffect(() => {
-    const saved = loadFilters();
-    const q = params.get("q");
-    setFilters((f) => ({ ...f, ...saved, ...(q != null ? { q } : {}) }));
+    const qs = params.toString();
+    if (lastWritten.current !== null && qs === lastWritten.current) return;
+    const fromUrl = filtersFromUrl(new URLSearchParams(qs));
+    setFilters(fromUrl);
+    lastWritten.current = filtersToUrl(fromUrl);
+    // the previous search is offered, never applied silently
+    if (!hydrated && isEmptySearch(fromUrl)) {
+      const saved = loadFilters();
+      if (!isEmptySearch(saved)) setSavedSearch(saved);
+    }
     setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
+  // state -> URL (debounced) + remember the last non-empty search for the "вернуть поиск" banner
+  const debouncedForUrl = useDebounced(filters, 400);
   useEffect(() => {
     if (!hydrated) return;
-    try {
-      localStorage.setItem("nja.lastFilters", JSON.stringify(filters));
-    } catch {}
-  }, [filters, hydrated]);
+    const qs = filtersToUrl(debouncedForUrl);
+    if (qs !== lastWritten.current) {
+      lastWritten.current = qs;
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+    }
+    if (!isEmptySearch(debouncedForUrl)) {
+      setSavedSearch(null);
+      try {
+        localStorage.setItem("nja.lastFilters", JSON.stringify(debouncedForUrl));
+      } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedForUrl, hydrated]);
 
   // "/" focuses the search
   useEffect(() => {
@@ -124,6 +185,7 @@ export function SearchPage() {
   const filterCount = activeFilterCount(filters);
 
   const chips: { key: string; label: string; remove: () => void }[] = [];
+  if (filters.q?.trim()) chips.push({ key: "q", label: `Запрос: ${filters.q.trim()}`, remove: () => setFilters({ ...filters, q: "" }) });
   filters.grade?.forEach((g) => chips.push({ key: `g${g}`, label: GRADE_LABEL[g], remove: () => setFilters({ ...filters, grade: filters.grade!.filter((x) => x !== g) }) }));
   filters.format?.forEach((g) => chips.push({ key: `f${g}`, label: FORMAT_LABEL[g], remove: () => setFilters({ ...filters, format: filters.format!.filter((x) => x !== g) }) }));
   filters.tags?.forEach((g) => chips.push({ key: `t${g}`, label: g, remove: () => setFilters({ ...filters, tags: filters.tags!.filter((x) => x !== g) }) }));
@@ -293,6 +355,26 @@ export function SearchPage() {
               </div>
             </div>
           </div>
+
+          {savedSearch && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border bg-card/60 px-3 py-2 text-[13px]">
+              <span className="text-muted-foreground">Прошлый поиск:</span>
+              <span className="min-w-0 truncate font-medium">
+                {[savedSearch.q?.trim(), ...(savedSearch.grade ?? []).map((g) => GRADE_LABEL[g]), ...(savedSearch.tags ?? []), ...(savedSearch.format ?? []).map((f) => FORMAT_LABEL[f])]
+                  .filter(Boolean)
+                  .slice(0, 4)
+                  .join(" · ") || `${activeFilterCount(savedSearch)} фильтр.`}
+              </span>
+              <span className="ml-auto flex gap-1">
+                <Button size="sm" variant="secondary" onClick={() => { setFilters({ ...DEFAULTS, ...savedSearch }); setSavedSearch(null); }}>
+                  Вернуть
+                </Button>
+                <button onClick={() => setSavedSearch(null)} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-muted" aria-label="Скрыть">
+                  <X className="h-4 w-4" />
+                </button>
+              </span>
+            </div>
+          )}
 
           <AnimatePresence initial={false}>
             {chips.length > 0 && (

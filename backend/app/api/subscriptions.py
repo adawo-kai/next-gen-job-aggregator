@@ -47,7 +47,7 @@ async def _out(session, s: Subscription, user: User, rates) -> dict:
 async def _own(session, user, sid) -> Subscription:
     s = await session.get(Subscription, sid)
     if s is None or s.user_id != user.id:
-        raise HTTPException(404, "Subscription not found")
+        raise HTTPException(404, "Подписка не найдена")
     return s
 
 

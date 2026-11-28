@@ -534,7 +534,7 @@ export function VacancyDetailPage({ id, initial }: { id: string; initial?: Vacan
               <h1 className="text-balance text-2xl font-semibold tracking-[-0.02em] sm:text-[28px] sm:leading-tight">{v.title}</h1>
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13.5px] text-muted-foreground">
                 <span className="font-medium text-foreground">{v.company.name}</span>
-                <TrustScore score={v.company.trust_score} />
+                {v.company.trust_score != null && <TrustScore score={v.company.trust_score} />}
                 {v.city && (
                   <span className="inline-flex items-center gap-1">
                     <MapPin className="h-3.5 w-3.5" />

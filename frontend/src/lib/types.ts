@@ -41,7 +41,7 @@ export interface ResumeResult {
 export interface Company {
   id: number | string;
   name: string;
-  trust_score: number;
+  trust_score: number | null; // null when the employer is unknown
   logo_url: string | null;
 }
 

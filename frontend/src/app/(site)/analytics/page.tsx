@@ -10,6 +10,7 @@ import type { Grade } from "@/lib/types";
 import { GRADE_LABEL } from "@/lib/utils";
 import { Button, Card, CardHeader, EmptyState, Select, Skeleton } from "@/components/ui/primitives";
 import { KpiSkeleton, KpiTile } from "@/components/analytics/kpi";
+import { Safe } from "@/components/ui/safe";
 import { FormatDonut, TopSkillsChart, TrendChart } from "@/components/analytics/charts";
 import { BySource, SalaryByGrade, SkillGapList, SkillGapTeaser, TrendDelta } from "@/components/analytics/blocks";
 
@@ -107,11 +108,11 @@ export default function AnalyticsPage() {
             <div className="grid gap-4 [&>*]:min-w-0 lg:grid-cols-5">
               <Card className="lg:col-span-3">
                 <CardHeader icon={<BarChart3 className="h-4 w-4" />} title="Топ навыков" description="Число вакансий и медианная зарплата" />
-                {d ? <div className="px-3 pb-4 pt-3 sm:px-5">{d.top_skills.length ? <TopSkillsChart data={d.top_skills} /> : <p className="px-2 text-sm text-muted-foreground">Нет данных</p>}</div> : <BlockSkeleton h="h-80" />}
+                {d ? <div className="px-3 pb-4 pt-3 sm:px-5">{d.top_skills.length ? <Safe label="топ навыков"><TopSkillsChart data={d.top_skills} /></Safe> : <p className="px-2 text-sm text-muted-foreground">Нет данных</p>}</div> : <BlockSkeleton h="h-80" />}
               </Card>
               <Card className="lg:col-span-2">
                 <CardHeader icon={<Wallet className="h-4 w-4" />} title="Зарплаты по грейдам" description="Перцентили p25 · p50 · p75, ₽" />
-                {d ? <div className="px-5 pb-5 pt-5">{<SalaryByGrade data={d.salary_by_grade} />}</div> : <BlockSkeleton h="h-80" />}
+                {d ? <div className="px-5 pb-5 pt-5"><Safe label="зарплаты по грейдам"><SalaryByGrade data={d.salary_by_grade} /></Safe></div> : <BlockSkeleton h="h-80" />}
               </Card>
             </div>
 
@@ -123,18 +124,18 @@ export default function AnalyticsPage() {
                   description="Новые уникальные вакансии за 30 дней"
                   action={d ? <TrendDelta data={d.trend} /> : undefined}
                 />
-                {d ? <div className="px-2 pb-4 pt-3 sm:px-4">{<TrendChart data={d.trend} />}</div> : <BlockSkeleton />}
+                {d ? <div className="px-2 pb-4 pt-3 sm:px-4"><Safe label="динамику"><TrendChart data={d.trend} /></Safe></div> : <BlockSkeleton />}
               </Card>
               <Card>
                 <CardHeader icon={<Network className="h-4 w-4" />} title="Источники" description="Объём и ошибки сбора за 24 часа" />
-                {d ? <div className="px-5 pb-5 pt-4">{<BySource data={d.by_source} />}</div> : <BlockSkeleton />}
+                {d ? <div className="px-5 pb-5 pt-4"><Safe label="источники"><BySource data={d.by_source} /></Safe></div> : <BlockSkeleton />}
               </Card>
             </div>
 
             <div className="mt-4 grid gap-4 [&>*]:min-w-0 lg:grid-cols-5">
               <Card className="lg:col-span-2">
                 <CardHeader icon={<Monitor className="h-4 w-4" />} title="Формат работы" description="Удалёнка, гибрид и офис" />
-                {d ? <div className="px-5 pb-5 pt-4">{<FormatDonut data={d.by_format} />}</div> : <BlockSkeleton />}
+                {d ? <div className="px-5 pb-5 pt-4"><Safe label="форматы работы"><FormatDonut data={d.by_format} /></Safe></div> : <BlockSkeleton />}
               </Card>
               <Card className="relative overflow-hidden lg:col-span-3">
                 <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-primary/15 blur-3xl" />
@@ -154,7 +155,7 @@ export default function AnalyticsPage() {
                       ))}
                     </div>
                   ) : gap.data ? (
-                    <SkillGapList data={gap.data} />
+                    <Safe label="подсказки по навыкам"><SkillGapList data={gap.data} /></Safe>
                   ) : (
                     <p className="text-sm text-muted-foreground">Не удалось посчитать skill gap. Заполните навыки в профиле.</p>
                   )}
