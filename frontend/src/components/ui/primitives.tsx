@@ -5,27 +5,11 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buttonClass, type ButtonSize, type ButtonVariant } from "./button-class";
+
+export { buttonClass };
 
 /* ---------------- Button ---------------- */
-
-type ButtonVariant = "primary" | "secondary" | "ghost" | "outline" | "danger";
-type ButtonSize = "sm" | "md" | "lg" | "icon" | "icon-sm";
-
-const variantCls: Record<ButtonVariant, string> = {
-  primary:
-    "bg-foreground text-background hover:bg-foreground/90 shadow-[0_1px_0_0_rgba(255,255,255,0.15)_inset,0_8px_24px_-8px_var(--glow)]",
-  secondary: "bg-muted text-foreground hover:bg-muted/70 ring-1 ring-inset ring-border",
-  ghost: "text-muted-foreground hover:text-foreground hover:bg-muted",
-  outline: "ring-1 ring-inset ring-border-strong text-foreground hover:bg-muted",
-  danger: "bg-rose-500/10 text-rose-500 dark:text-rose-400 ring-1 ring-inset ring-rose-500/25 hover:bg-rose-500/15",
-};
-const sizeCls: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-[13px] gap-1.5 rounded-lg",
-  md: "h-9 px-4 text-sm gap-2 rounded-lg",
-  lg: "h-11 px-5 text-[15px] gap-2 rounded-xl",
-  icon: "h-9 w-9 rounded-lg",
-  "icon-sm": "h-7 w-7 rounded-md",
-};
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -41,12 +25,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
     <button
       ref={ref}
       disabled={disabled || loading}
-      className={cn(
-        "inline-flex select-none items-center justify-center whitespace-nowrap font-medium transition-[background,color,box-shadow,transform] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
-        variantCls[variant],
-        sizeCls[size],
-        className,
-      )}
+      className={buttonClass({ variant, size, className })}
       {...props}
     >
       {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -228,14 +207,29 @@ export function Skeleton({ className }: { className?: string }) {
 
 /* ---------------- Empty state ---------------- */
 
-export function EmptyState({ icon, title, description, action, className }: { icon: React.ReactNode; title: string; description?: string; action?: React.ReactNode; className?: string }) {
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+  className,
+  titleAs: Title = "h3",
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  className?: string;
+  /** "h1" when the empty state is the whole page (e.g. a protected page for a signed-out visitor) */
+  titleAs?: "h1" | "h2" | "h3";
+}) {
   return (
     <div className={cn("flex flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-16 text-center", className)}>
       <div className="relative mb-4 grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground ring-1 ring-inset ring-border">
         <div className="absolute inset-0 -z-10 rounded-xl bg-primary/20 blur-xl" />
         {icon}
       </div>
-      <h3 className="text-[15px] font-semibold">{title}</h3>
+      <Title className="text-[15px] font-semibold">{title}</Title>
       {description && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>

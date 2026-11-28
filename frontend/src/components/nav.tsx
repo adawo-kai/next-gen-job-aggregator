@@ -9,7 +9,7 @@ import { motion } from "motion/react";
 import { BarChart3, Briefcase, Database, KanbanSquare, LogOut, Moon, Search, Sun, User, UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, useMockMode } from "@/lib/auth";
-import { Button, Kbd, Tooltip } from "@/components/ui/primitives";
+import { Button, buttonClass, Kbd, Tooltip } from "@/components/ui/primitives";
 import { CommandPalette } from "@/components/command-palette";
 
 const LINKS = [
@@ -81,11 +81,11 @@ function UserMenu() {
   if (!isAuthed)
     return (
       <div className="flex items-center gap-1.5">
-        <Link href="/login">
-          <Button variant="ghost" size="sm">Войти</Button>
+        <Link href="/login" className={buttonClass({ variant: "ghost", size: "sm" })}>
+          Войти
         </Link>
-        <Link href="/register" className="hidden sm:block">
-          <Button size="sm">Регистрация</Button>
+        <Link href="/register" className={buttonClass({ size: "sm", className: "hidden sm:inline-flex" })}>
+          Регистрация
         </Link>
       </div>
     );
@@ -93,7 +93,7 @@ function UserMenu() {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="flex h-9 cursor-pointer items-center gap-2 rounded-full py-1 pl-1 pr-1 outline-none ring-1 ring-inset ring-border transition hover:bg-muted sm:pr-3">
+        <button aria-label="Меню аккаунта" className="flex h-9 cursor-pointer items-center gap-2 rounded-full py-1 pl-1 pr-1 outline-none ring-1 ring-inset ring-border transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring sm:pr-3">
           <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-cyan-400 text-[12px] font-semibold text-white">
             {email[0]?.toUpperCase()}
           </span>
@@ -129,6 +129,20 @@ function UserMenu() {
   );
 }
 
+/** First focusable element of the site: jumps over the header (and the hero on the home page). */
+export function SkipLink() {
+  const pathname = usePathname();
+  const home = pathname === "/";
+  return (
+    <a
+      href={home ? "#vacancies" : "#main"}
+      className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-foreground focus:px-4 focus:py-2.5 focus:text-[14px] focus:font-medium focus:text-background focus:shadow-xl focus:outline-none focus:ring-2 focus:ring-ring"
+    >
+      {home ? "Перейти к вакансиям" : "Перейти к содержимому"}
+    </a>
+  );
+}
+
 export function Nav() {
   const pathname = usePathname();
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -151,11 +165,12 @@ export function Nav() {
       <header className="sticky top-0 z-40 border-b bg-background/70 backdrop-blur-xl supports-[backdrop-filter]:bg-background/55">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
           <Logo />
-          <nav className="ml-4 hidden items-center gap-0.5 md:flex">
+          <nav aria-label="Основная навигация" className="ml-4 hidden items-center gap-0.5 md:flex">
             {LINKS.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
+                aria-current={isActive(l.href) ? "page" : undefined}
                 className={cn(
                   "relative rounded-lg px-3 py-1.5 text-[13.5px] font-medium transition-colors",
                   isActive(l.href) ? "text-foreground" : "text-muted-foreground hover:text-foreground",
@@ -172,6 +187,7 @@ export function Nav() {
             <MockBadge />
             <button
               onClick={() => setPaletteOpen(true)}
+              aria-label="Быстрый поиск (Ctrl+K)"
               className="hidden h-9 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg px-2.5 text-[13px] text-muted-foreground ring-1 ring-inset ring-border transition hover:text-foreground xl:flex"
             >
               <Search className="h-3.5 w-3.5" />
@@ -188,11 +204,12 @@ export function Nav() {
         </div>
       </header>
       {/* mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
+      <nav aria-label="Основная навигация (мобильная)" className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
         {LINKS.map((l) => (
           <Link
             key={l.href}
             href={l.href}
+            aria-current={isActive(l.href) ? "page" : undefined}
             className={cn("flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium", isActive(l.href) ? "text-foreground" : "text-muted-foreground")}
           >
             <l.icon className="h-5 w-5" />

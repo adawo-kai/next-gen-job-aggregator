@@ -35,7 +35,7 @@ import { sanitizeHtml, textToHtml } from "@/lib/sanitize";
 import { useAuth } from "@/lib/auth";
 import type { MatchExplanation, VacancyDetail } from "@/lib/types";
 import { cn, formatDate, formatMoney, FORMAT_LABEL, scoreTone, sourceMeta, timeAgo } from "@/lib/utils";
-import { Badge, Button, Card, CardHeader, EmptyState, Skeleton, Tooltip } from "@/components/ui/primitives";
+import { Badge, Button, buttonClass, Card, CardHeader, EmptyState, Skeleton, Tooltip } from "@/components/ui/primitives";
 import { AddToTrackerButton, CompanyAvatar, GhostBadge, MatchRing, SalaryText, SourceBadge, SourceStack, TrustScore, WaterMeter } from "./bits";
 import { GradeBadge, VacancyCard } from "./vacancy-card";
 
@@ -49,7 +49,7 @@ const FACTOR_LABEL: Record<string, string> = {
 
 const fade = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
 
-/* ---------------- AI summary ---------------- */
+/* ---------------- «Коротко о вакансии» (summary) ---------------- */
 
 function SummaryBlocks({ v }: { v: VacancyDetail }) {
   if (!v.summary) return null;
@@ -62,8 +62,8 @@ function SummaryBlocks({ v }: { v: VacancyDetail }) {
     <Card className="overflow-hidden">
       <CardHeader
         icon={<Sparkles className="h-4 w-4 text-violet-400" />}
-        title="AI-саммари"
-        description="Суть вакансии в трёх блоках — без воды"
+        title="Коротко о вакансии"
+        description="Суть в трёх блоках — сверяйтесь с оригиналом перед откликом"
         action={<EnrichmentBadge v={v} />}
       />
       <div className="grid gap-3 p-5 md:grid-cols-3">
@@ -93,27 +93,33 @@ function SummaryBlocks({ v }: { v: VacancyDetail }) {
   );
 }
 
+/** How the summary was made — honestly: "AI" only when a language model really wrote it. */
 function EnrichmentBadge({ v }: { v: VacancyDetail }) {
   const llm = v.enrichment.method === "llm";
   return (
     <Tooltip
       content={
-        <div className="space-y-0.5">
-          <div className="font-medium">{llm ? "Обогащено LLM" : "Обогащено правилами (офлайн-фолбэк)"}</div>
-          <div className="text-muted-foreground">Модель: {v.enrichment.model}</div>
-          <div className="text-muted-foreground">Промпт: {v.enrichment.prompt_version}</div>
-          <div className="text-muted-foreground">{formatDate(v.enrichment.enriched_at, true)}</div>
+        <div className="space-y-1">
+          <div className="font-medium">{llm ? "Составлено AI" : "Составлено правилами"}</div>
+          <div className="text-muted-foreground">
+            {llm
+              ? "Языковая модель прочитала текст вакансии и выделила задачи, требования и условия. Возможны неточности — сверяйтесь с оригиналом."
+              : "Без AI: блоки собраны автоматически по ключевым фразам и спискам в тексте вакансии. Что не распозналось — смотрите в описании ниже."}
+          </div>
+          <div className="text-[11.5px] text-muted-foreground">Обработано {formatDate(v.enrichment.enriched_at, true)}</div>
         </div>
       }
     >
       <span
+        tabIndex={0}
+        aria-label={llm ? "Составлено AI" : "Составлено правилами, без AI"}
         className={cn(
-          "inline-flex h-6 cursor-default items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium ring-1 ring-inset",
+          "inline-flex h-6 cursor-help items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium ring-1 ring-inset outline-none focus-visible:ring-2 focus-visible:ring-ring",
           llm ? "bg-violet-500/10 text-violet-600 ring-violet-500/30 dark:text-violet-300" : "bg-zinc-500/10 text-zinc-600 ring-zinc-500/30 dark:text-zinc-300",
         )}
       >
         {llm ? <Bot className="h-3.5 w-3.5" /> : <Cpu className="h-3.5 w-3.5" />}
-        {llm ? "LLM" : "Rules"}
+        {llm ? "AI" : "Правила"}
       </span>
     </Tooltip>
   );
@@ -192,10 +198,10 @@ function MatchCard({ match, loading }: { match?: MatchExplanation; loading: bool
         <div className="absolute inset-0 grid place-items-center bg-card/60 backdrop-blur-[1px]">
           <div className="text-center">
             <Lock className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
-            <div className="text-[14px] font-semibold">Объяснимый match score</div>
+            <div className="text-[14px] font-semibold">Совпадение с вашим профилем</div>
             <div className="mb-3 text-[12.5px] text-muted-foreground">Сколько баллов дал каждый фактор</div>
-            <Link href="/login">
-              <Button size="sm">Войти</Button>
+            <Link href="/login" className={buttonClass({ size: "sm" })}>
+              Войти
             </Link>
           </div>
         </div>
@@ -217,7 +223,7 @@ function MatchCard({ match, loading }: { match?: MatchExplanation; loading: bool
         <div className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full blur-3xl" style={{ background: `${tone.stroke}22` }} />
         <MatchRing score={match.score} size={64} stroke={5} />
         <div>
-          <div className="text-[15px] font-semibold">Match score</div>
+          <h2 className="text-[15px] font-semibold">Совпадение с профилем</h2>
           <div className="text-[12.5px] text-muted-foreground">
             {match.score >= 75 ? "Отличное совпадение — стоит откликнуться" : match.score >= 50 ? "Хорошее совпадение, есть пробелы" : "Слабое совпадение"}
           </div>
@@ -250,7 +256,7 @@ function MatchCard({ match, loading }: { match?: MatchExplanation; loading: bool
         })}
         {match.missing_must.length > 0 && (
           <div className="rounded-xl bg-rose-500/[0.07] p-3 text-[12.5px] ring-1 ring-inset ring-rose-500/20">
-            <span className="font-medium text-rose-600 dark:text-rose-300">Не хватает обязательных: </span>
+            <span className="font-medium text-rose-600 dark:text-rose-300">Что подтянуть (обязательные навыки): </span>
             {match.missing_must.join(", ")}
           </div>
         )}
@@ -312,7 +318,7 @@ function SalaryMarket({ v }: { v: VacancyDetail }) {
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-4 rounded-full bg-gradient-to-r from-violet-500/50 to-cyan-400/50" /> p25–p75 рынка
+            <span className="h-2 w-4 rounded-full bg-gradient-to-r from-violet-500/50 to-cyan-400/50" /> средние 50% рынка (25–75-й перцентиль)
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className={cn("h-2 w-4 rounded-full", v.salary.estimated ? "bg-zinc-400/70" : "bg-emerald-400")} /> {v.salary.estimated ? "оценка для вакансии" : "эта вакансия"}
@@ -375,8 +381,8 @@ function RedFlagsCard({ v }: { v: VacancyDetail }) {
     <Card>
       <CardHeader
         icon={<AlertTriangle className={cn("h-4 w-4", v.red_flags.length ? "text-rose-400" : "")} />}
-        title="Red flags"
-        description={v.red_flags.length ? `Найдено ${v.red_flags.length} — с цитатами из текста` : "Тревожных сигналов не найдено"}
+        title="Тревожные признаки"
+        description={v.red_flags.length ? `Найдено ${v.red_flags.length} — с цитатами из текста` : "Тревожных признаков не найдено"}
         action={<WaterMeter score={v.water_score} />}
       />
       <div className="space-y-2 p-5">
@@ -489,17 +495,19 @@ export function VacancyDetailPage({ id, initial }: { id: string; initial?: Vacan
     return missing || !err ? (
       <EmptyState
         icon={<CircleDot className="h-5 w-5" />}
+        titleAs="h1"
         title="Вакансия не найдена"
-        description="Возможно, её сняли с публикации или ссылка устарела."
+        description="Возможно, её уже закрыли или ссылка устарела."
         action={
-          <Link href="/">
-            <Button variant="secondary">К поиску</Button>
+          <Link href="/" className={buttonClass({ variant: "secondary" })}>
+            К вакансиям
           </Link>
         }
       />
     ) : (
       <EmptyState
         icon={<WifiOff className="h-5 w-5" />}
+        titleAs="h1"
         title="Не удалось загрузить вакансию"
         description={err instanceof ApiError && err.status ? err.detail : "Сервер временно недоступен. Проверьте соединение и попробуйте ещё раз."}
         action={
@@ -559,10 +567,13 @@ export function VacancyDetailPage({ id, initial }: { id: string; initial?: Vacan
               <div className="flex min-w-0 flex-1 flex-wrap gap-2 sm:flex-none">
                 <AddToTrackerButton vacancyId={v.id} size="md" variant="primary" className="h-11 flex-1 sm:h-9 sm:flex-none" />
                 {primary && (
-                  <a href={primary.url} target="_blank" rel="noopener noreferrer nofollow" className="flex-1 sm:flex-none">
-                    <Button variant="secondary" className="h-11 w-full sm:h-9">
-                      <ExternalLink className="h-4 w-4" /> Оригинал
-                    </Button>
+                  <a
+                    href={primary.url}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className={buttonClass({ variant: "secondary", className: "h-11 flex-1 sm:h-9 sm:flex-none" })}
+                  >
+                    <ExternalLink className="h-4 w-4" /> Оригинал
                   </a>
                 )}
               </div>

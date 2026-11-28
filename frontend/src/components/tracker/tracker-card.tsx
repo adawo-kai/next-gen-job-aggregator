@@ -27,17 +27,18 @@ export function TrackerCardView({ item, overlay = false, dragging = false }: { i
         dragging && "opacity-30",
       )}
     >
-      <div className="flex items-start gap-2.5">
-        <CompanyAvatar name={v.company.name} logo={v.company.logo_url} size={30} />
-        <div className="min-w-0 flex-1">
-          <div className="line-clamp-2 text-[13px] font-semibold leading-snug tracking-tight">{v.title}</div>
-          <div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">{v.company.name}</div>
-        </div>
+      {/* the title gets the full card width: narrow columns (6 side by side at 1440px) still fit two lines */}
+      <div className="flex items-center gap-2">
+        <CompanyAvatar name={v.company.name} logo={v.company.logo_url} size={24} />
+        <div className="min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground">{v.company.name}</div>
         {v.match_score != null ? (
-          <MatchRing score={v.match_score} size={32} stroke={3} label={false} />
+          <MatchRing score={v.match_score} size={28} stroke={3} label={false} />
         ) : (
           <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100" />
         )}
+      </div>
+      <div className="mt-2 line-clamp-2 break-words text-[13px] font-semibold leading-snug tracking-tight [hyphens:auto]" title={v.title}>
+        {v.title}
       </div>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -52,16 +53,16 @@ export function TrackerCardView({ item, overlay = false, dragging = false }: { i
         </div>
       )}
 
-      <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
         {rem ? (
-          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-600 ring-1 ring-inset ring-amber-500/25 dark:text-amber-300">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-600 ring-1 ring-inset ring-amber-500/25 dark:text-amber-300">
             <BellRing className="h-3 w-3" />
             {formatDate(rem.remind_at, true)}
           </span>
         ) : (
           <span />
         )}
-        <span className="tabular-nums">{timeAgo(item.updated_at)}</span>
+        <span className="whitespace-nowrap tabular-nums">{timeAgo(item.updated_at)}</span>
       </div>
     </div>
   );
@@ -78,6 +79,16 @@ export function SortableTrackerCard({ item, onOpen }: { item: TrackerItem; onOpe
       style={{ transform: CSS.Transform.toString(transform), transition }}
       {...attributes}
       {...listeners}
+      aria-roledescription="перемещаемая карточка"
+      aria-label={`${item.vacancy.title}, ${item.vacancy.company.name}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !isDragging) {
+          e.preventDefault();
+          onOpen(item);
+          return;
+        }
+        listeners?.onKeyDown?.(e);
+      }}
       onClick={() => onOpen(item)}
       className="cursor-grab touch-manipulation select-none outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
     >

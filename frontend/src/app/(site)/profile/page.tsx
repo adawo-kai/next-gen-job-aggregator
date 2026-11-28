@@ -9,7 +9,8 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Profile } from "@/lib/types";
 import { GRADE_LABEL } from "@/lib/utils";
-import { Badge, Button, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Badge, buttonClass, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { OnboardingCard } from "@/components/profile/onboarding-card";
 import { ResumeCard } from "@/components/profile/resume-card";
 import { PreferencesCard } from "@/components/profile/preferences-card";
 import { TelegramCard } from "@/components/profile/telegram-card";
@@ -46,15 +47,16 @@ export default function ProfilePage() {
       <div className="mx-auto max-w-lg pt-12">
         <EmptyState
           icon={<UserRound className="h-5 w-5" />}
+          titleAs="h1"
           title="Войдите, чтобы настроить профиль"
-          description="Загрузите резюме — мы извлечём навыки, посчитаем match score для каждой вакансии и покажем, что выучить для роста."
+          description="Загрузите резюме — мы извлечём навыки, посчитаем совпадение с каждой вакансией и подскажем, что подтянуть для роста."
           action={
             <div className="flex gap-2">
-              <Link href="/login?next=/profile">
-                <Button>Войти</Button>
+              <Link href="/login?next=/profile" className={buttonClass()}>
+                Войти
               </Link>
-              <Link href="/register?next=/profile">
-                <Button variant="secondary">Регистрация</Button>
+              <Link href="/register?next=/profile" className={buttonClass({ variant: "secondary" })}>
+                Регистрация
               </Link>
             </div>
           }
@@ -87,20 +89,22 @@ export default function ProfilePage() {
         )}
       </motion.div>
 
+      <OnboardingCard profile={p} />
+
       <div className="grid items-start gap-6 lg:grid-cols-[1.25fr_1fr]">
         <div className="space-y-6">
-          <motion.div {...fade(1)}>
+          <motion.div {...fade(1)} id="resume" className="scroll-mt-20">
             <ResumeCard onProfile={onProfile} />
           </motion.div>
-          <motion.div {...fade(2)}>
+          <motion.div {...fade(2)} id="preferences" className="scroll-mt-20">
             <PreferencesCard profile={p} loading={profile.isLoading} />
           </motion.div>
         </div>
         <div className="space-y-6">
-          <motion.div {...fade(3)}>
+          <motion.div {...fade(3)} id="telegram" className="scroll-mt-20">
             <TelegramCard />
           </motion.div>
-          <motion.div {...fade(4)}>
+          <motion.div {...fade(4)} id="subscriptions" className="scroll-mt-20">
             <SubscriptionsCard />
           </motion.div>
           <motion.div {...fade(5)}>

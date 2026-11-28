@@ -118,7 +118,7 @@ function CreateForm({ onDone }: { onDone: () => void }) {
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="min-match">Минимальный match</Label>
+              <Label htmlFor="min-match">Минимальное совпадение</Label>
               <Switch checked={useMatch} onCheckedChange={setUseMatch} />
             </div>
             <div className={cn("flex h-8 items-center gap-3 transition-opacity", !useMatch && "pointer-events-none opacity-40")}>
@@ -189,7 +189,7 @@ function SubRow({ s, index }: { s: Subscription; index: number }) {
           {s.min_match != null && (
             <Badge tone="success">
               <Target className="h-3 w-3" />
-              match ≥ {s.min_match}
+              совпадение ≥ {s.min_match}%
             </Badge>
           )}
         </div>
@@ -262,7 +262,9 @@ export function SubscriptionsCard() {
             <div className="border-t px-5 py-10 text-center">
               <Bell className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
               <div className="text-sm font-medium">Подписок пока нет</div>
-              <p className="mt-1 text-[12.5px] text-muted-foreground">Настройте фильтры на главной и сохраните их как подписку.</p>
+              <p className="mt-1 text-[12.5px] text-muted-foreground">
+                Настройте поиск на главной и нажмите «Сохранить поиск как подписку» в фильтрах — или создайте подписку здесь кнопкой «Новая».
+              </p>
             </div>
           )
         )}

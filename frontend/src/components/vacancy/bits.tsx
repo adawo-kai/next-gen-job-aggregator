@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { AlertTriangle, Bookmark, BookmarkCheck, Droplets, Ghost, Layers, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, Bookmark, BookmarkCheck, Droplets, Ghost, Layers, ShieldCheck } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -10,7 +10,8 @@ import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { track } from "@/lib/analytics";
 import type { RedFlag, Salary, VacancySource } from "@/lib/types";
-import { cn, formatDate, formatMoney, formatSalary, hashHue, initials, plural, scoreTone, sourceMeta, trustTone } from "@/lib/utils";
+import { cn, formatDate, formatMoney, formatSalary, hashHue, initials, isConverted, plural, scoreTone, sourceMeta, trustTone } from "@/lib/utils";
+export { isConverted };
 import { Badge, Button, Tooltip } from "@/components/ui/primitives";
 
 /* ---------------- Company avatar ---------------- */
@@ -100,7 +101,7 @@ export function MatchRing({ score, size = 52, stroke = 4.5, label = true }: { sc
   const c = 2 * Math.PI * r;
   const tone = scoreTone(score);
   return (
-    <Tooltip content={<span>Match score — насколько вакансия подходит под ваш профиль</span>}>
+    <Tooltip content={<span>Совпадение {score}% — насколько вакансия подходит вашему профилю: навыки, грейд, зарплата и формат</span>}>
       <div className="relative shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="-rotate-90">
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={stroke} className="text-border-strong" />
@@ -134,32 +135,36 @@ export function MatchRing({ score, size = 52, stroke = 4.5, label = true }: { sc
 
 /* ---------------- Water meter ---------------- */
 
+/** `score` is the water score (0 = all to the point); the meter shows the opposite — how concrete the text is. */
 export function WaterMeter({ score, compact = false }: { score: number; compact?: boolean }) {
+  const concrete = Math.max(0, Math.min(100, 100 - score));
   const tone = score >= 60 ? "bg-rose-400" : score >= 35 ? "bg-amber-400" : "bg-emerald-400";
   const label = score >= 60 ? "много воды" : score >= 35 ? "есть вода" : "по делу";
   return (
     <Tooltip
       content={
         <div>
-          <div className="font-medium">Water score: {score}/100</div>
-          <div className="text-muted-foreground">Доля «воды» в тексте: клише, общие фразы, отсутствие конкретики. Чем ниже — тем лучше.</div>
+          <div className="font-medium">По делу: {concrete} из 100</div>
+          <div className="text-muted-foreground">
+            Доля конкретики в тексте: чем меньше воды, тем выше. «Вода» — клише и общие фразы вроде «дружный коллектив» без задач и условий.
+          </div>
         </div>
       }
     >
-      <div className="flex cursor-default items-center gap-2">
-        <Droplets className="h-3.5 w-3.5 text-muted-foreground" />
-        <div className="flex gap-[2px]">
+      <div className="flex cursor-help items-center gap-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} aria-label={`По делу: ${concrete} из 100 — ${label}`}>
+        <Droplets className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+        <div className="flex gap-[2px]" aria-hidden>
           {Array.from({ length: 10 }).map((_, i) => (
-            <span key={i} className={cn("h-2.5 w-[3px] rounded-full", i < Math.round(score / 10) ? tone : "bg-border-strong")} />
+            <span key={i} className={cn("h-2.5 w-[3px] rounded-full", i < Math.round(concrete / 10) ? tone : "bg-border-strong")} />
           ))}
         </div>
-        {!compact && <span className="text-[11.5px] text-muted-foreground">{label}</span>}
+        {!compact && <span className="text-[12px] text-muted-foreground" aria-hidden>{label}</span>}
       </div>
     </Tooltip>
   );
 }
 
-/* ---------------- Red flags ---------------- */
+/* ---------------- Тревожные признаки (red flags) ---------------- */
 
 export function RedFlagChips({ flags, max = 3 }: { flags: RedFlag[]; max?: number }) {
   if (!flags.length) return null;
@@ -219,8 +224,8 @@ export function TrustScore({ score, withLabel = true }: { score: number; withLab
     <Tooltip
       content={
         <div>
-          <div className="font-medium">Trust score компании: {score}/100</div>
-          <div className="text-muted-foreground">Считается по доле вечных вакансий, red flags и скрытых зарплат.</div>
+          <div className="font-medium">Доверие к компании: {score} из 100</div>
+          <div className="text-muted-foreground">Считается по доле вечных вакансий, тревожных признаков в текстах и скрытых зарплат.</div>
         </div>
       }
     >
@@ -235,30 +240,49 @@ export function TrustScore({ score, withLabel = true }: { score: number; withLab
 
 /* ---------------- Salary ---------------- */
 
+
 export function SalaryText({ salary, className, compact = false }: { salary: Salary; className?: string; compact?: boolean }) {
   const text = formatSalary(salary, compact);
   if (!text) return <span className={cn("text-muted-foreground", className)}>З/п не указана</span>;
-  const rub =
-    salary.currency !== "RUB" && salary.rub_from != null && salary.converted_from == null
-      ? formatMoney(salary.rub_from, "RUB", true)
-      : null;
+  const converted = isConverted(salary);
+  const original = converted ? formatSalary({ ...salary, converted_from: null, converted_to: null }, compact) : null;
+
+  // an estimate must look weaker than a real salary: muted, regular weight, explained in a tooltip
+  if (salary.estimated)
+    return (
+      <Tooltip
+        content={
+          <div>
+            <div>Медиана по похожим вакансиям: зарплата не указана работодателем</div>
+            {original && <div className="mt-1 text-muted-foreground">В исходной валюте: ≈ {original}</div>}
+          </div>
+        }
+      >
+        <span
+          tabIndex={0}
+          className={cn("inline-flex cursor-help flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded font-normal text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+        >
+          <span className="tabular-nums">≈ {text}</span>
+          <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-border">оценка рынка</span>
+        </span>
+      </Tooltip>
+    );
+
+  const rub = salary.currency !== "RUB" && salary.rub_from != null && !converted && salary.converted_from == null ? formatMoney(salary.rub_from, "RUB", true) : null;
+  const main = <span className="font-semibold tabular-nums tracking-tight">{converted ? `≈ ${text}` : text}</span>;
   return (
     <span className={cn("inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5", className)}>
-      <span className={cn("font-semibold tabular-nums tracking-tight", salary.estimated && "text-muted-foreground")}>
-        {salary.estimated ? `≈ ${text}` : text}
-      </span>
-      {salary.estimated ? (
-        <Tooltip content="Зарплата не указана работодателем. Оценка по перцентилям рынка для этого грейда и стека.">
-          <span className="inline-flex cursor-help items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-600 ring-1 ring-inset ring-violet-500/25 dark:text-violet-300">
-            <Sparkles className="h-3 w-3" />≈ оценка рынка
+      {converted && original ? (
+        <Tooltip content={`Работодатель указал: ${original}. Пересчитано по текущему курсу`}>
+          <span tabIndex={0} className="cursor-help rounded outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {main}
           </span>
         </Tooltip>
       ) : (
-        <>
-          {rub && <span className="text-[12px] text-muted-foreground">≈ {rub}</span>}
-          {salary.gross != null && <span className="text-[11.5px] text-muted-foreground">{salary.gross ? "до вычета" : "на руки"}</span>}
-        </>
+        main
       )}
+      {rub && <span className="text-[12px] text-muted-foreground">≈ {rub}</span>}
+      {salary.gross != null && <span className="text-[12px] text-muted-foreground">{salary.gross ? "до вычета" : "на руки"}</span>}
     </span>
   );
 }

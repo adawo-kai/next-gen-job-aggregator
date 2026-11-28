@@ -3,7 +3,7 @@
 import { AlertTriangle, Ghost, Layers, ShieldCheck } from "lucide-react";
 import { memo } from "react";
 import type { Salary, VacancyCard as Card } from "@/lib/types";
-import { cn, FORMAT_LABEL, formatSalary, GRADE_LABEL, plural, timeAgo, trustTone } from "@/lib/utils";
+import { cn, FORMAT_LABEL, formatSalary, GRADE_LABEL, isConverted, plural, timeAgo, trustTone } from "@/lib/utils";
 import { Avatar, MatchRing, Pill, Skeleton } from "./ui";
 
 export function SalaryLine({ salary, className }: { salary: Salary; className?: string }) {
@@ -11,10 +11,11 @@ export function SalaryLine({ salary, className }: { salary: Salary; className?: 
   if (!text) return <div className={cn("text-[15px] text-muted-foreground", className)}>Зарплата не указана</div>;
   return (
     <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1", className)}>
-      <span className={cn("text-[16px] font-semibold tabular-nums tracking-tight", salary.estimated && "text-muted-foreground")}>
-        {salary.estimated ? `≈ ${text}` : text}
+      {/* an estimate (median of similar vacancies) must look weaker than a salary the employer stated */}
+      <span className={cn("text-[16px] tabular-nums tracking-tight", salary.estimated ? "font-normal text-muted-foreground" : "font-semibold")}>
+        {salary.estimated || isConverted(salary) ? `≈ ${text}` : text}
       </span>
-      {salary.estimated && <Pill tone="violet">≈ оценка</Pill>}
+      {salary.estimated && <Pill>≈ оценка рынка</Pill>}
     </div>
   );
 }
@@ -84,7 +85,7 @@ export const VacancyCard = memo(function VacancyCard({ v, onOpen }: { v: Card; o
           {v.red_flags.length > 0 && (
             <Pill tone="danger">
               <AlertTriangle className="h-3 w-3" />
-              {v.red_flags.length} {plural(v.red_flags.length, "red flag", "red flags", "red flags")}
+              {v.red_flags.length} {plural(v.red_flags.length, "тревожный признак", "тревожных признака", "тревожных признаков")}
             </Pill>
           )}
         </div>

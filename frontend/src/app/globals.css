@@ -6,7 +6,7 @@
   --background: #fbfbfc;
   --foreground: #0b0b0f;
   --muted: #f2f2f5;
-  --muted-foreground: #6b6b76;
+  --muted-foreground: #585863;
   --card: #ffffff;
   --card-foreground: #0b0b0f;
   --border: rgba(10, 10, 20, 0.08);
@@ -152,6 +152,24 @@ body {
   margin: 0.25rem 0;
   line-height: 1.65;
 }
+.prose-desc ul,
+.prose-desc ol {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+.prose-desc ul { list-style: disc; }
+.prose-desc ol { list-style: decimal; }
+.prose-desc li { margin: 0.2rem 0; line-height: 1.6; }
+.prose-desc li::marker { color: var(--muted-foreground); }
+.prose-desc h2,
+.prose-desc h3,
+.prose-desc h4 {
+  margin: 1rem 0 0.35rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.prose-desc strong, .prose-desc b { font-weight: 600; color: var(--foreground); }
+.prose-desc a { text-decoration: underline; text-underline-offset: 3px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

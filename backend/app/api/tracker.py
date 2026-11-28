@@ -27,9 +27,10 @@ TRANSITIONS: dict[str, set[str]] = {
     "test_task": {"applied", "interview", "offer", "rejected"},
     "interview": {"test_task", "applied", "offer", "rejected"},
     "offer": {"interview", "rejected"},
-    "rejected": {"applied", "test_task", "interview"},
+    "rejected": {"saved", "applied", "test_task", "interview"},  # undo of a rejection must always work
 }
 FOLLOW_UP_DAYS = 3
+FOLLOW_UP_TEXT = "Написать HR, если нет ответа"
 
 
 def can_move(src: str, dst: str) -> bool:
@@ -109,9 +110,10 @@ async def patch(item_id: int, body: PatchIn, user: User = Depends(current_user),
         if not can_move(i.status, body.status):
             raise HTTPException(422, f"Из «{STATUS_RU[i.status]}» нельзя сразу перейти в «{STATUS_RU[body.status]}»")
         session.add(TrackerEvent(item_id=i.id, kind="status", payload={"from": i.status, "to": body.status}))
-        if body.status == "applied":
+        has_pending_followup = any(not rem.sent and rem.text == FOLLOW_UP_TEXT for rem in i.reminders)
+        if body.status == "applied" and not has_pending_followup:  # one auto follow-up, not one per move
             r = Reminder(item_id=i.id, remind_at=datetime.now(UTC) + timedelta(days=FOLLOW_UP_DAYS),
-                         text="Написать HR, если нет ответа")
+                         text=FOLLOW_UP_TEXT)
             session.add(r)
             session.add(TrackerEvent(item_id=i.id, kind="reminder", payload={"text": r.text, "auto": True}))
         if body.status in ("offer", "rejected"):

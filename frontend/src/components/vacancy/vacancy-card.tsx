@@ -32,12 +32,13 @@ export function VacancyCard({ v, index = 0, compact = false }: { v: TVacancy; in
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: Math.min(index, 8) * 0.035, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* no viewport prefetch: an infinite list would fire dozens of RSC requests at once */}
-      <Link href={`/vacancies/${v.id}`} prefetch={false} className="group block">
+      {/* One link per card (the title) stretched over the whole card with ::after; the other interactive
+          bits (source links, tooltips, «В трекер») sit above it with relative z-10, never inside the <a>. */}
+      <article className="group">
         <Card
           className={cn(
-            "relative overflow-hidden p-4 transition-all duration-200 hover:-translate-y-px hover:border-border-strong hover:shadow-[0_12px_40px_-16px_var(--glow)] sm:p-5",
-            v.is_ghost && "opacity-[0.82] hover:opacity-100",
+            "relative overflow-hidden p-4 transition-all duration-200 focus-within:border-border-strong hover:-translate-y-px hover:border-border-strong hover:shadow-[0_12px_40px_-16px_var(--glow)] sm:p-5",
+            v.is_ghost && "opacity-[0.82] hover:opacity-100 focus-within:opacity-100",
           )}
         >
           {/* hover glow */}
@@ -48,12 +49,23 @@ export function VacancyCard({ v, index = 0, compact = false }: { v: TVacancy; in
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="text-[15.5px] font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                    {v.title}
+                  <h3 className="text-[15.5px] font-semibold leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary line-clamp-2">
+                    {/* no viewport prefetch: an infinite list would fire dozens of RSC requests at once */}
+                    <Link
+                      href={`/vacancies/${v.id}`}
+                      prefetch={false}
+                      className="outline-none after:absolute after:inset-0 after:z-0 after:rounded-2xl after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                    >
+                      {v.title}
+                    </Link>
                   </h3>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-muted-foreground">
                     <span className="font-medium text-foreground/80">{v.company.name}</span>
-                    {v.company.trust_score != null && <TrustScore score={v.company.trust_score} withLabel={false} />}
+                    {v.company.trust_score != null && (
+                      <span className="relative z-10">
+                        <TrustScore score={v.company.trust_score} withLabel={false} />
+                      </span>
+                    )}
                     {v.city && (
                       <span className="inline-flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
@@ -72,10 +84,14 @@ export function VacancyCard({ v, index = 0, compact = false }: { v: TVacancy; in
                     </span>
                   </div>
                 </div>
-                {v.match_score != null && <MatchRing score={v.match_score} size={compact ? 42 : 50} />}
+                {v.match_score != null && (
+                  <div className="relative z-10">
+                    <MatchRing score={v.match_score} size={compact ? 42 : 50} />
+                  </div>
+                )}
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="relative z-10 mt-3 flex w-fit max-w-full flex-wrap items-center gap-x-3 gap-y-2">
                 <SalaryText salary={v.salary} className="text-[15px]" />
                 <GradeBadge grade={v.grade} />
               </div>
@@ -88,7 +104,7 @@ export function VacancyCard({ v, index = 0, compact = false }: { v: TVacancy; in
               )}
 
               {(v.is_ghost || v.red_flags.length > 0) && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
+                <div className="relative z-10 mt-3 flex w-fit max-w-full flex-wrap gap-1.5">
                   {v.is_ghost && <GhostBadge reason={v.ghost_reason} repostCount={v.repost_count} />}
                   <RedFlagChips flags={v.red_flags} max={compact ? 1 : 3} />
                 </div>
@@ -104,16 +120,16 @@ export function VacancyCard({ v, index = 0, compact = false }: { v: TVacancy; in
               </div>
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="relative z-10 flex flex-wrap items-center gap-3">
                   <SourceStack sources={v.sources} />
                   {!compact && <WaterMeter score={v.water_score} />}
                 </div>
-                <AddToTrackerButton vacancyId={v.id} size={compact ? "icon-sm" : "sm"} variant="ghost" className="touch-hit" />
+                <AddToTrackerButton vacancyId={v.id} size={compact ? "icon-sm" : "sm"} variant="ghost" className="touch-hit relative z-10" />
               </div>
             </div>
           </div>
         </Card>
-      </Link>
+      </article>
     </motion.div>
   );
 }

@@ -6,7 +6,7 @@ export const size = OG_SIZE;
 export const contentType = "image/png";
 
 export default async function Image() {
-  const features = ["Без дублей", "AI-выжимка", "Match score по резюме", "Детектор вечных вакансий"];
+  const features = ["Без дублей", "Коротко о вакансии", "Совпадение с резюме", "Детектор вечных вакансий"];
   return new ImageResponse(
     (
       <div style={canvasStyle}>

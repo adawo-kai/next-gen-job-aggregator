@@ -5,7 +5,7 @@ import "./tg.css";
 
 export const metadata: Metadata = {
   title: { absolute: "JobRadar" },
-  description: "IT-вакансии с Habr Карьеры, GeekJob, DevKG и Telegram — с match score, AI-саммари и трекером откликов.",
+  description: "IT-вакансии с Habr Карьеры, GeekJob, DevKG и Telegram — с процентом совпадения, короткой выжимкой и трекером откликов.",
   robots: { index: false, follow: false },
 };
 

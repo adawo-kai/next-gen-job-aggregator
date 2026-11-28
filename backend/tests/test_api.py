@@ -61,8 +61,9 @@ async def test_search_filters_and_cursor(client):
     assert seniors["items"] and all(i["grade"] == "senior" for i in seniors["items"])
 
     by_salary = (await client.get("/api/v1/vacancies", params={"sort": "salary", "limit": 20})).json()["items"]
-    tops = [i["salary"]["rub_to"] or i["salary"]["rub_from"] or 0 for i in by_salary]
-    assert tops == sorted(tops, reverse=True)
+    mids = [((i["salary"]["rub_from"] or i["salary"]["rub_to"]) + (i["salary"]["rub_to"] or i["salary"]["rub_from"])) / 2
+            for i in by_salary if not i["salary"]["estimated"]]
+    assert mids and mids == sorted(mids, reverse=True)  # middle of the stated range, high to low
 
     q = (await client.get("/api/v1/vacancies", params={"q": "python", "sort": "relevance", "limit": 10})).json()
     assert q["items"] and any("Python" in i["tags"] or "python" in i["title"].lower() for i in q["items"])
@@ -390,9 +391,10 @@ async def test_search_synonyms_symbols_and_honest_salary(client):
     py = (await client.get("/api/v1/vacancies", params={"q": "python", "limit": 5})).json()
     translit = (await client.get("/api/v1/vacancies", params={"q": "пайтон", "limit": 5})).json()
     assert translit["total"] > 0 and translit["total"] == py["total"]
-    cpp = (await client.get("/api/v1/vacancies", params={"q": "c++", "limit": 50})).json()
-    cs = (await client.get("/api/v1/vacancies", params={"q": "c#", "limit": 50})).json()
-    assert {i["id"] for i in cpp["items"]} != {i["id"] for i in cs["items"]}
+    # symbols are kept: "c++" never degenerates into a search for the letter "c"
+    for q, skill in (("c++", "C++"), ("c#", "C#")):
+        found = (await client.get("/api/v1/vacancies", params={"q": q, "limit": 50})).json()["items"]
+        assert all(skill in i["tags"] or q in i["title"].lower() for i in found)
     rich = (await client.get("/api/v1/vacancies", params={"salary_min": 300000, "limit": 100})).json()["items"]
     assert rich and all(not i["salary"]["estimated"] for i in rich)
     by_sal = (await client.get("/api/v1/vacancies", params={"sort": "salary", "limit": 30})).json()["items"]

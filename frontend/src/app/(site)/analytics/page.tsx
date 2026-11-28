@@ -96,7 +96,7 @@ export default function AnalyticsPage() {
             ) : (
               <>
                 <KpiTile index={0} label="Вакансий" value={d.totals.vacancies} icon={Layers} tone="violet" hint={<TrendDelta data={d.trend} />} />
-                <KpiTile index={1} label="Компаний" value={d.totals.companies} icon={Building2} tone="cyan" hint="с trust score" />
+                <KpiTile index={1} label="Компаний" value={d.totals.companies} icon={Building2} tone="cyan" hint="с оценкой доверия" />
                 <KpiTile index={2} label="Источников" value={d.totals.sources} icon={Network} tone="emerald" hint="hh · Habr · Telegram" />
                 <KpiTile index={3} label="Склеено дублей" value={d.totals.merged_duplicates} icon={Sparkles} tone="amber" hint={`${dupShare}% публикаций — дубли`} />
                 <KpiTile index={4} label="Вечных вакансий" value={d.totals.ghosts} icon={Ghost} tone="zinc" hint={`${ghostShare}% от всех — скрыты по фильтру`} />
@@ -111,7 +111,7 @@ export default function AnalyticsPage() {
                 {d ? <div className="px-3 pb-4 pt-3 sm:px-5">{d.top_skills.length ? <Safe label="топ навыков"><TopSkillsChart data={d.top_skills} /></Safe> : <p className="px-2 text-sm text-muted-foreground">Нет данных</p>}</div> : <BlockSkeleton h="h-80" />}
               </Card>
               <Card className="lg:col-span-2">
-                <CardHeader icon={<Wallet className="h-4 w-4" />} title="Зарплаты по грейдам" description="Перцентили p25 · p50 · p75, ₽" />
+                <CardHeader icon={<Wallet className="h-4 w-4" />} title="Зарплаты по грейдам" description="Типичная вилка и медиана по грейду, ₽" />
                 {d ? <div className="px-5 pb-5 pt-5"><Safe label="зарплаты по грейдам"><SalaryByGrade data={d.salary_by_grade} /></Safe></div> : <BlockSkeleton h="h-80" />}
               </Card>
             </div>
@@ -141,7 +141,7 @@ export default function AnalyticsPage() {
                 <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-primary/15 blur-3xl" />
                 <CardHeader
                   icon={<Target className="h-4 w-4" />}
-                  title="Skill gap"
+                  title="Что подтянуть"
                   description="Какой навык откроет больше всего подходящих вакансий"
                 />
                 <div className="px-5 pb-5 pt-4">
@@ -157,7 +157,7 @@ export default function AnalyticsPage() {
                   ) : gap.data ? (
                     <Safe label="подсказки по навыкам"><SkillGapList data={gap.data} /></Safe>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Не удалось посчитать skill gap. Заполните навыки в профиле.</p>
+                    <p className="text-sm text-muted-foreground">Не удалось посчитать, какие навыки подтянуть. Заполните навыки в профиле.</p>
                   )}
                 </div>
               </Card>

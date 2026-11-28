@@ -13,13 +13,16 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type Announcements,
+  type ScreenReaderInstructions,
+  type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Inbox } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { TrackerBoard, TrackerItem, TrackerStatus } from "@/lib/types";
 import { cn, STATUS_META, STATUS_ORDER } from "@/lib/utils";
 import { SortableTrackerCard, TrackerCardView } from "./tracker-card";
@@ -32,15 +35,43 @@ export function normalizeBoard(b: TrackerBoard | undefined): Record<TrackerStatu
   return cols;
 }
 
+/** Statuses reachable from `from` (the backend state machine); everything when the server sent no table. */
+export function allowedTargets(board: TrackerBoard | undefined, from: TrackerStatus): TrackerStatus[] {
+  const t = board?.transitions?.[from];
+  return t ? STATUS_ORDER.filter((s) => t.includes(s)) : STATUS_ORDER.filter((s) => s !== from);
+}
+
+export function canMove(board: TrackerBoard | undefined, from: TrackerStatus, to: TrackerStatus) {
+  return from === to || allowedTargets(board, from).includes(to);
+}
+
+/** «Из «Сохранено» можно перейти в: Откликнулся, Отказ» */
+export function transitionHint(board: TrackerBoard | undefined, from: TrackerStatus) {
+  const targets = allowedTargets(board, from);
+  if (!targets.length) return `Из «${STATUS_META[from].title}» переходов нет`;
+  return `Из «${STATUS_META[from].title}» можно перейти в: ${targets.map((s) => STATUS_META[s].title).join(", ")}`;
+}
+
 /** Hook that moves an item to another status with optimistic update + revert. */
 export function useMoveItem() {
   const qc = useQueryClient();
-  return async function move(itemId: string, to: TrackerStatus, opts: { snapshot?: TrackerBoard; position?: number; skipOptimistic?: boolean } = {}) {
+  return async function move(
+    itemId: string,
+    to: TrackerStatus,
+    opts: { snapshot?: TrackerBoard; position?: number; skipOptimistic?: boolean; undo?: boolean } = {},
+  ): Promise<void> {
     const snapshot = opts.snapshot ?? qc.getQueryData<TrackerBoard>(TRACKER_KEY);
     if (!snapshot) return;
     const fromCols = normalizeBoard(snapshot);
     const origin = STATUS_ORDER.find((s) => fromCols[s].some((i) => String(i.id) === itemId));
     if (!origin) return;
+
+    // forbidden by the state machine: explain instead of asking the server (undo is always allowed to try)
+    if (!opts.undo && !canMove(snapshot, origin, to)) {
+      qc.setQueryData<TrackerBoard>(TRACKER_KEY, snapshot);
+      toast.error(`Нельзя перенести в «${STATUS_META[to].title}»`, { id: "tracker-move", description: transitionHint(snapshot, origin) });
+      return;
+    }
 
     if (!opts.skipOptimistic) {
       const cols = normalizeBoard(qc.getQueryData<TrackerBoard>(TRACKER_KEY));
@@ -52,7 +83,7 @@ export function useMoveItem() {
       if (moving) {
         const pos = opts.position ?? cols[to].length;
         cols[to].splice(pos, 0, { ...moving, status: to, updated_at: new Date().toISOString() });
-        qc.setQueryData<TrackerBoard>(TRACKER_KEY, { columns: cols });
+        qc.setQueryData<TrackerBoard>(TRACKER_KEY, { ...snapshot, columns: cols });
       }
     }
 
@@ -62,7 +93,17 @@ export function useMoveItem() {
     try {
       await api.patchTracker(itemId, origin === to ? { position } : { status: to, position });
       if (origin !== to) {
-        if (to === "applied") {
+        if (opts.undo) {
+          toast.success(`Возвращено в «${STATUS_META[to].title}»`, { id: "tracker-undo" });
+        } else if (to === "rejected") {
+          // undo = PATCH back; offered only when the state machine allows going back to the origin
+          const undoable = canMove(snapshot, "rejected", origin);
+          toast(`Перенесено в «${STATUS_META[to].title}»`, {
+            id: "tracker-move",
+            duration: undoable ? 8000 : 4000,
+            ...(undoable ? { action: { label: "Отменить", onClick: () => void move(itemId, origin, { undo: true }) } } : {}),
+          });
+        } else if (to === "applied") {
           toast.success(`Перенесено в «${STATUS_META[to].title}»`, {
             description: "Через 3 дня напомним написать HR, если не будет ответа",
           });
@@ -76,22 +117,59 @@ export function useMoveItem() {
       qc.invalidateQueries({ queryKey: ["tracker-events", itemId] });
     } catch (e) {
       qc.setQueryData<TrackerBoard>(TRACKER_KEY, snapshot);
-      toast.error("Переход невозможен", {
-        description: (e as Error).message || `Нельзя перенести из «${STATUS_META[origin].title}» в «${STATUS_META[to].title}»`,
-      });
+      const status = e instanceof ApiError ? e.status : 0;
+      if (opts.undo) {
+        toast.error("Не удалось отменить", { id: "tracker-undo", description: "Перенесите карточку вручную" });
+      } else if (status === 400 || status === 409 || status === 422) {
+        toast.error(`Нельзя перенести в «${STATUS_META[to].title}»`, { id: "tracker-move", description: transitionHint(snapshot, origin) });
+      } else if (status !== 429) {
+        toast.error("Не удалось перенести карточку", {
+          id: "tracker-move",
+          description: status ? "Сервер не принял изменение — попробуйте ещё раз" : "Нет соединения с сервером — попробуйте ещё раз",
+        });
+      }
     }
   };
 }
+
+/* dnd-kit's built-in screen-reader texts are English */
+const STATUS_IDS = new Set<string>(STATUS_ORDER);
+function useAnnouncements(cols: Record<TrackerStatus, TrackerItem[]>) {
+  const title = (id: UniqueIdentifier) => {
+    const s = String(id);
+    if (STATUS_IDS.has(s)) return `колонку «${STATUS_META[s as TrackerStatus].title}»`;
+    for (const st of STATUS_ORDER) {
+      const it = cols[st].find((i) => String(i.id) === s);
+      if (it) return `«${it.vacancy.title}» (колонка «${STATUS_META[st].title}»)`;
+    }
+    return "карточку";
+  };
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Карточка ${title(active.id)} взята. Стрелками перемещайте, пробел — положить, Escape — отменить.`,
+    onDragOver: ({ active, over }) => (over ? `Карточка ${title(active.id)} над: ${title(over.id)}.` : `Карточка ${title(active.id)} вне колонок.`),
+    onDragEnd: ({ active, over }) => (over ? `Карточка ${title(active.id)} перенесена на: ${title(over.id)}.` : `Карточка ${title(active.id)} положена на место.`),
+    onDragCancel: ({ active }) => `Перенос отменён. Карточка ${title(active.id)} вернулась на место.`,
+  };
+  return announcements;
+}
+
+const screenReaderInstructions: ScreenReaderInstructions = {
+  draggable:
+    "Чтобы перенести карточку, нажмите пробел. Стрелками выберите колонку, затем снова нажмите пробел. Escape — отмена. Enter — открыть карточку.",
+};
 
 function Column({
   status,
   items,
   highlighted,
+  blocked,
   onOpen,
 }: {
   status: TrackerStatus;
   items: TrackerItem[];
   highlighted: boolean;
+  /** the card being dragged cannot move here (state machine) */
+  blocked: boolean;
   onOpen: (i: TrackerItem) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: status });
@@ -100,8 +178,12 @@ function Column({
     <div
       className={cn(
         "flex min-h-[420px] snap-start flex-col rounded-2xl border bg-muted/30 transition-[background,border-color,box-shadow] duration-200",
-        highlighted && "border-border-strong bg-muted/60 shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_10%,transparent)]",
+        highlighted && !blocked && "border-border-strong bg-muted/60 shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_10%,transparent)]",
+        blocked && "opacity-50",
+        highlighted && blocked && "border-rose-500/40 opacity-70",
       )}
+      aria-label={`Колонка «${meta.title}», карточек: ${items.length}`}
+      role="region"
     >
       <div className="relative flex items-center gap-2 px-3 pb-2 pt-3">
         <span
@@ -109,7 +191,8 @@ function Column({
           style={{ background: `linear-gradient(90deg, transparent, ${meta.color}88, transparent)` }}
         />
         <span className={cn("h-2 w-2 rounded-full", meta.dot)} style={{ boxShadow: `0 0 10px ${meta.color}` }} />
-        <span className="text-[13px] font-semibold tracking-tight">{meta.title}</span>
+        <h2 className="text-[13px] font-semibold tracking-tight">{meta.title}</h2>
+        {blocked && <span className="text-[11px] text-rose-600 dark:text-rose-300">сюда нельзя</span>}
         <span className="ml-auto rounded-md bg-background/60 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground ring-1 ring-inset ring-border">
           {items.length}
         </span>
@@ -122,7 +205,7 @@ function Column({
           {items.length === 0 && (
             <div
               className={cn(
-                "flex flex-1 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-3 py-8 text-center text-[12px] text-muted-foreground/80 transition-colors",
+                "flex flex-1 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-3 py-8 text-center text-[12px] text-muted-foreground transition-colors",
                 highlighted && "border-primary/40 text-foreground",
               )}
             >
@@ -148,7 +231,11 @@ export function KanbanBoard({ board, onOpen }: { board: TrackerBoard; onOpen: (i
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    // Space picks a card up; Enter is left for opening it
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+      keyboardCodes: { start: ["Space"], cancel: ["Escape"], end: ["Space", "Enter"] },
+    }),
   );
 
   const findContainer = (id: string, c = cols): TrackerStatus | null => {
@@ -156,6 +243,8 @@ export function KanbanBoard({ board, onOpen }: { board: TrackerBoard; onOpen: (i
     return STATUS_ORDER.find((s) => c[s].some((i) => String(i.id) === id)) ?? null;
   };
 
+  const announcements = useAnnouncements(cols);
+  const origin = activeId && snapshot.current ? findContainer(activeId, normalizeBoard(snapshot.current)) : null;
   const activeItem = activeId ? STATUS_ORDER.flatMap((s) => cols[s]).find((i) => String(i.id) === activeId) : null;
 
   const onDragStart = (e: DragStartEvent) => {
@@ -180,7 +269,7 @@ export function KanbanBoard({ board, onOpen }: { board: TrackerBoard; onOpen: (i
     const overIdx = next[to].findIndex((i) => String(i.id) === oId);
     const insertAt = overIdx >= 0 ? overIdx : next[to].length;
     next[to].splice(insertAt, 0, { ...moving, status: to });
-    qc.setQueryData<TrackerBoard>(TRACKER_KEY, { columns: next });
+    qc.setQueryData<TrackerBoard>(TRACKER_KEY, { ...board, ...qc.getQueryData<TrackerBoard>(TRACKER_KEY), columns: next });
   };
 
   const reset = () => {
@@ -207,7 +296,7 @@ export function KanbanBoard({ board, onOpen }: { board: TrackerBoard; onOpen: (i
       const newIdx = current[container].findIndex((i) => String(i.id) === String(over.id));
       if (newIdx >= 0 && oldIdx !== newIdx) {
         current[container] = arrayMove(current[container], oldIdx, newIdx);
-        qc.setQueryData<TrackerBoard>(TRACKER_KEY, { columns: current });
+        qc.setQueryData<TrackerBoard>(TRACKER_KEY, { ...board, ...qc.getQueryData<TrackerBoard>(TRACKER_KEY), columns: current });
       }
     }
     const origCols = normalizeBoard(snap);
@@ -237,12 +326,20 @@ export function KanbanBoard({ board, onOpen }: { board: TrackerBoard; onOpen: (i
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
+      accessibility={{ announcements, screenReaderInstructions }}
     >
       {/* phones: one column ≈ 82% of the screen, swiped with snap; desktop: all six side by side */}
       <div className="-mx-4 snap-x snap-mandatory scroll-px-4 overflow-x-auto overscroll-x-contain px-4 pb-4 scrollbar-thin sm:-mx-6 sm:scroll-px-6 sm:px-6 md:snap-none">
         <div className="grid grid-cols-[repeat(6,82vw)] gap-2.5 sm:grid-cols-[repeat(6,minmax(250px,1fr))] xl:grid-cols-[repeat(6,minmax(196px,1fr))]">
           {STATUS_ORDER.map((s) => (
-            <Column key={s} status={s} items={cols[s]} highlighted={!!activeId && overCol === s} onOpen={open} />
+            <Column
+              key={s}
+              status={s}
+              items={cols[s]}
+              highlighted={!!activeId && overCol === s}
+              blocked={!!origin && !canMove(snapshot.current ?? board, origin, s)}
+              onOpen={open}
+            />
           ))}
         </div>
       </div>

@@ -9,10 +9,11 @@ import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "@/components/nav";
-import { Button, Card, Input, Label } from "@/components/ui/primitives";
-import { PasswordInput } from "./auth-form";
+import { Button, buttonClass, Card, Input, Label } from "@/components/ui/primitives";
+import { MIN_PASSWORD, passwordError } from "@/lib/password";
+import { PasswordInput, PasswordStrength } from "./auth-form";
 
-export const MIN_PASSWORD = 8;
+export { MIN_PASSWORD } from "@/lib/password";
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -137,7 +138,8 @@ export function ResetPasswordForm() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password.length < MIN_PASSWORD) return setError(`Пароль должен быть не короче ${MIN_PASSWORD} символов`);
+    const pwErr = passwordError(password);
+    if (pwErr) return setError(pwErr);
     if (password !== confirm) return setError("Пароли не совпадают");
     setLoading(true);
     try {
@@ -163,10 +165,8 @@ export function ResetPasswordForm() {
           title="Ссылка недействительна"
           text="Срок действия ссылки истёк или она уже использована. Запросите новую — это займёт минуту."
         />
-        <Link href="/forgot-password">
-          <Button size="lg" className="w-full">
-            Запросить новую ссылку
-          </Button>
+        <Link href="/forgot-password" className={buttonClass({ size: "lg", className: "w-full" })}>
+          Запросить новую ссылку
         </Link>
       </Shell>
     );
@@ -175,10 +175,8 @@ export function ResetPasswordForm() {
     return (
       <Shell>
         <Heading icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />} title="Пароль изменён" text="Вы вошли в аккаунт. Сейчас откроем ленту вакансий…" />
-        <Link href="/">
-          <Button size="lg" className="w-full">
-            К вакансиям
-          </Button>
+        <Link href="/" className={buttonClass({ size: "lg", className: "w-full" })}>
+          К вакансиям
         </Link>
       </Shell>
     );
@@ -190,6 +188,7 @@ export function ResetPasswordForm() {
         <div className="space-y-1.5">
           <Label htmlFor="password">Новый пароль</Label>
           <PasswordInput id="password" value={password} onChange={setPassword} placeholder={`Минимум ${MIN_PASSWORD} символов`} autoComplete="new-password" />
+          <PasswordStrength password={password} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="confirm">Повторите пароль</Label>

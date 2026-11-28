@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { startTransition, useEffect } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { reportError } from "@/lib/monitoring";
-import { Button } from "@/components/ui/primitives";
+import { Button, buttonClass } from "@/components/ui/primitives";
 
 export default function SiteError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
@@ -30,15 +30,13 @@ export default function SiteError({ error, reset }: { error: Error & { digest?: 
       <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
         Не удалось загрузить страницу. Возможно, сервер временно недоступен — попробуйте ещё раз через минуту.
       </p>
-      {error.digest && <p className="mt-2 font-mono text-[11.5px] text-muted-foreground/70">Код ошибки: {error.digest}</p>}
+      {error.digest && <p className="mt-2 font-mono text-[11.5px] text-muted-foreground">Код ошибки: {error.digest}</p>}
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <Button size="lg" onClick={retry}>
           <RefreshCw className="h-4 w-4" /> Повторить
         </Button>
-        <Link href="/">
-          <Button size="lg" variant="secondary">
-            На главную
-          </Button>
+        <Link href="/" className={buttonClass({ size: "lg", variant: "secondary" })}>
+          На главную
         </Link>
       </div>
     </div>

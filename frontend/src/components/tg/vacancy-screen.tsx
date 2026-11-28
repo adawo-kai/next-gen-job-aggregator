@@ -97,7 +97,7 @@ function Header({ v, onMenu }: { v: Card; onMenu?: () => void }) {
           {v.red_flags.length > 0 && (
             <Pill tone="danger">
               <AlertTriangle className="h-3 w-3" />
-              {v.red_flags.length} {plural(v.red_flags.length, "red flag", "red flags", "red flags")}
+              {v.red_flags.length} {plural(v.red_flags.length, "тревожный признак", "тревожных признака", "тревожных признаков")}
             </Pill>
           )}
         </div>
@@ -158,7 +158,7 @@ function MatchSection({ match, loading, v }: { match?: MatchExplanation; loading
         })}
         {(match.missing_must.length > 0 || match.missing_nice.length > 0) && (
           <div className="rounded-xl bg-rose-500/[0.08] p-3 text-[14px] leading-snug">
-            <span className="font-semibold text-rose-600 dark:text-rose-300">Не хватает: </span>
+            <span className="font-semibold text-rose-600 dark:text-rose-300">Что подтянуть: </span>
             {match.missing_must.join(", ")}
             {match.missing_nice.length > 0 && (
               <span className="text-muted-foreground">
@@ -203,10 +203,14 @@ function SummarySection({ v }: { v: VacancyDetail }) {
     <Section
       title={
         <span className="inline-flex items-center gap-1.5">
-          <Sparkles className="h-3.5 w-3.5" /> Коротко о главном
+          <Sparkles className="h-3.5 w-3.5" /> Коротко о вакансии
         </span>
       }
-      footer={v.enrichment.method === "llm" ? "Саммари составлено AI по тексту вакансии" : "Саммари составлено автоматически по тексту вакансии"}
+      footer={
+        v.enrichment.method === "llm"
+          ? "AI: выжимку составила языковая модель по тексту вакансии — сверяйтесь с оригиналом"
+          : "Правила: выжимка собрана автоматически по ключевым фразам текста, без AI — сверяйтесь с оригиналом"
+      }
     >
       {blocks.map((b, i) => (
         <div key={b.title}>
@@ -279,7 +283,7 @@ function SkillsSection({ v, match }: { v: VacancyDetail; match?: MatchExplanatio
 function RisksSection({ v }: { v: VacancyDetail }) {
   if (!v.is_ghost && !v.red_flags.length)
     return (
-      <Section title="Проверка вакансии">
+      <Section title="Тревожные признаки">
         <div className="flex items-center gap-3 p-4 text-[15px]">
           <BadgeCheck className="h-5 w-5 shrink-0 text-emerald-500" />
           <span>Тревожных сигналов не найдено: конкретные задачи и условия</span>
@@ -287,7 +291,7 @@ function RisksSection({ v }: { v: VacancyDetail }) {
       </Section>
     );
   return (
-    <Section title="Проверка вакансии">
+    <Section title="Тревожные признаки">
       {v.is_ghost && (
         <div className="flex gap-3 p-4">
           <Ghost className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
